@@ -262,11 +262,17 @@ public class SpringApplication {
 		this.resourceLoader = resourceLoader;
 		Assert.notNull(primarySources, "PrimarySources must not be null");
 		this.primarySources = new LinkedHashSet<>(Arrays.asList(primarySources));
+		// 推断当前应用程序的类型
+		// 是Servlet? 还是Reactive?
 		this.webApplicationType = WebApplicationType.deduceFromClasspath();
+		// 从META-INF/spring.factories中加载BootstrapRegistryInitializer的实例
 		this.bootstrapRegistryInitializers = new ArrayList<>(
 				getSpringFactoriesInstances(BootstrapRegistryInitializer.class));
+		// 从META-INF/spring.factories中加载ApplicationContextInitializer的实例
 		setInitializers((Collection) getSpringFactoriesInstances(ApplicationContextInitializer.class));
+		// 从META-INF/spring.factories中加载ApplicationListener的实例
 		setListeners((Collection) getSpringFactoriesInstances(ApplicationListener.class));
+		// 推断main方法所在的类
 		this.mainApplicationClass = deduceMainApplicationClass();
 	}
 
@@ -292,11 +298,15 @@ public class SpringApplication {
 	 * @return a running {@link ApplicationContext}
 	 */
 	public ConfigurableApplicationContext run(String... args) {
+		//提供一種自定义钩子函数的能力，可以在容器刷新前做一些操作
 		SpringApplicationHooks.hooks().preRun(this);
 		long startTime = System.nanoTime();
+		//创建一个父级上下文
 		DefaultBootstrapContext bootstrapContext = createBootstrapContext();
 		ConfigurableApplicationContext context = null;
+		// 配置Headless属性
 		configureHeadlessProperty();
+		// 从META-INF/spring.factories中加载SpringApplicationRunListener的实例，并封装到SpringApplicationRunListeners对象当中
 		SpringApplicationRunListeners listeners = getRunListeners(args);
 		listeners.starting(bootstrapContext, this.mainApplicationClass);
 		try {
