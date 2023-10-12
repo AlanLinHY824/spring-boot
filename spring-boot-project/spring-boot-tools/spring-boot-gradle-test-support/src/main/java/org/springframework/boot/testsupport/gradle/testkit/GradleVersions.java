@@ -19,6 +19,7 @@ package org.springframework.boot.testsupport.gradle.testkit;
 import java.util.Arrays;
 import java.util.List;
 
+import org.gradle.api.JavaVersion;
 import org.gradle.util.GradleVersion;
 
 /**
@@ -31,12 +32,25 @@ public final class GradleVersions {
 	private GradleVersions() {
 	}
 
+	@SuppressWarnings("UnstableApiUsage")
 	public static List<String> allCompatible() {
-		return Arrays.asList("7.5.1", GradleVersion.current().getVersion(), "8.0.2");
+		if (isJavaVersion(JavaVersion.VERSION_20)) {
+			return Arrays.asList("8.1.1", "8.3", "8.4");
+		}
+		return Arrays.asList("7.5.1", GradleVersion.current().getVersion(), "8.0.2", "8.3", "8.4");
 	}
 
 	public static String minimumCompatible() {
 		return allCompatible().get(0);
+	}
+
+	public static String maximumCompatible() {
+		List<String> versions = allCompatible();
+		return versions.get(versions.size() - 1);
+	}
+
+	private static boolean isJavaVersion(JavaVersion version) {
+		return JavaVersion.current().isCompatibleWith(version);
 	}
 
 }

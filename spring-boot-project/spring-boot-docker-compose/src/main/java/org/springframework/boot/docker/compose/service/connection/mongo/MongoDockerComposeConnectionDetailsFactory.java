@@ -18,7 +18,6 @@ package org.springframework.boot.docker.compose.service.connection.mongo;
 
 import com.mongodb.ConnectionString;
 
-import org.springframework.boot.autoconfigure.elasticsearch.ElasticsearchConnectionDetails;
 import org.springframework.boot.autoconfigure.mongo.MongoConnectionDetails;
 import org.springframework.boot.docker.compose.core.RunningService;
 import org.springframework.boot.docker.compose.service.connection.DockerComposeConnectionDetailsFactory;
@@ -31,6 +30,7 @@ import org.springframework.boot.docker.compose.service.connection.DockerComposeC
  * @author Moritz Halbritter
  * @author Andy Wilkinson
  * @author Phillip Webb
+ * @author Scott Frederick
  */
 class MongoDockerComposeConnectionDetailsFactory extends DockerComposeConnectionDetailsFactory<MongoConnectionDetails> {
 
@@ -47,8 +47,7 @@ class MongoDockerComposeConnectionDetailsFactory extends DockerComposeConnection
 	}
 
 	/**
-	 * {@link ElasticsearchConnectionDetails} backed by a {@code mariadb}
-	 * {@link RunningService}.
+	 * {@link MongoConnectionDetails} backed by a {@code mongo} {@link RunningService}.
 	 */
 	static class MongoDockerComposeConnectionDetails extends DockerComposeConnectionDetails
 			implements MongoConnectionDetails {
@@ -75,6 +74,9 @@ class MongoDockerComposeConnectionDetailsFactory extends DockerComposeConnection
 			builder.append(service.ports().get(MONGODB_PORT));
 			builder.append("/");
 			builder.append((environment.getDatabase() != null) ? environment.getDatabase() : "test");
+			if (environment.getUsername() != null) {
+				builder.append("?authSource=admin");
+			}
 			return new ConnectionString(builder.toString());
 		}
 

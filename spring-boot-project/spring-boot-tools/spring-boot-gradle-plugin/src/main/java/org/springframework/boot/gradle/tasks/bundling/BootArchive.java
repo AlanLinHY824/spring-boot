@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2022 the original author or authors.
+ * Copyright 2012-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,18 +16,24 @@
 
 package org.springframework.boot.gradle.tasks.bundling;
 
+import java.util.Set;
+
 import org.gradle.api.Action;
 import org.gradle.api.JavaVersion;
 import org.gradle.api.Project;
 import org.gradle.api.Task;
+import org.gradle.api.artifacts.result.ResolvedArtifactResult;
 import org.gradle.api.file.FileCollection;
 import org.gradle.api.file.FileTreeElement;
 import org.gradle.api.provider.Property;
+import org.gradle.api.provider.Provider;
 import org.gradle.api.specs.Spec;
 import org.gradle.api.tasks.Classpath;
 import org.gradle.api.tasks.Input;
 import org.gradle.api.tasks.Nested;
 import org.gradle.api.tasks.Optional;
+
+import org.springframework.boot.loader.tools.LoaderImplementation;
 
 /**
  * A Spring Boot "fat" archive task.
@@ -119,5 +125,23 @@ public interface BootArchive extends Task {
 	@Input
 	@Optional
 	Property<JavaVersion> getTargetJavaVersion();
+
+	/**
+	 * Registers the given lazily provided {@code resolvedArtifacts}. They are used to map
+	 * from the files in the {@link #getClasspath classpath} to their dependency
+	 * coordinates.
+	 * @param resolvedArtifacts the lazily provided resolved artifacts
+	 * @since 3.0.7
+	 */
+	void resolvedArtifacts(Provider<Set<ResolvedArtifactResult>> resolvedArtifacts);
+
+	/**
+	 * The loader implementation that should be used with the archive.
+	 * @return the loader implementation
+	 * @since 3.2.0
+	 */
+	@Input
+	@Optional
+	Property<LoaderImplementation> getLoaderImplementation();
 
 }

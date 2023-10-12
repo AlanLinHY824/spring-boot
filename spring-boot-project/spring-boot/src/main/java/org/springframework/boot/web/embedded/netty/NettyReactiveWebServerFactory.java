@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2022 the original author or authors.
+ * Copyright 2012-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,13 +27,13 @@ import java.util.Set;
 
 import reactor.netty.http.HttpProtocol;
 import reactor.netty.http.server.HttpServer;
-import reactor.netty.resources.LoopResources;
 
 import org.springframework.boot.web.reactive.server.AbstractReactiveWebServerFactory;
 import org.springframework.boot.web.reactive.server.ReactiveWebServerFactory;
 import org.springframework.boot.web.server.Shutdown;
+import org.springframework.boot.web.server.Ssl;
 import org.springframework.boot.web.server.WebServer;
-import org.springframework.http.client.reactive.ReactorResourceFactory;
+import org.springframework.http.client.ReactorResourceFactory;
 import org.springframework.http.server.reactive.HttpHandler;
 import org.springframework.http.server.reactive.ReactorHttpHandlerAdapter;
 import org.springframework.util.Assert;
@@ -77,7 +77,7 @@ public class NettyReactiveWebServerFactory extends AbstractReactiveWebServerFact
 
 	NettyWebServer createNettyWebServer(HttpServer httpServer, ReactorHttpHandlerAdapter handlerAdapter,
 			Duration lifecycleTimeout, Shutdown shutdown) {
-		return new NettyWebServer(httpServer, handlerAdapter, lifecycleTimeout, shutdown);
+		return new NettyWebServer(httpServer, handlerAdapter, lifecycleTimeout, shutdown, this.resourceFactory);
 	}
 
 	/**
@@ -157,16 +157,8 @@ public class NettyReactiveWebServerFactory extends AbstractReactiveWebServerFact
 	}
 
 	private HttpServer createHttpServer() {
-		HttpServer server = HttpServer.create();
-		if (this.resourceFactory != null) {
-			LoopResources resources = this.resourceFactory.getLoopResources();
-			Assert.notNull(resources, "No LoopResources: is ReactorResourceFactory not initialized yet?");
-			server = server.runOn(resources).bindAddress(this::getListenAddress);
-		}
-		else {
-			server = server.bindAddress(this::getListenAddress);
-		}
-		if (getSsl() != null && getSsl().isEnabled()) {
+		HttpServer server = HttpServer.create().bindAddress(this::getListenAddress);
+		if (Ssl.isEnabled(getSsl())) {
 			server = customizeSslConfiguration(server);
 		}
 		if (getCompression() != null && getCompression().getEnabled()) {
@@ -177,11 +169,8 @@ public class NettyReactiveWebServerFactory extends AbstractReactiveWebServerFact
 		return applyCustomizers(server);
 	}
 
-	@SuppressWarnings("deprecation")
 	private HttpServer customizeSslConfiguration(HttpServer httpServer) {
-		SslServerCustomizer sslServerCustomizer = new SslServerCustomizer(getSsl(), getHttp2(),
-				getOrCreateSslStoreProvider());
-		return sslServerCustomizer.apply(httpServer);
+		return new SslServerCustomizer(getHttp2(), getSsl().getClientAuth(), getSslBundle()).apply(httpServer);
 	}
 
 	private HttpProtocol[] listProtocols() {

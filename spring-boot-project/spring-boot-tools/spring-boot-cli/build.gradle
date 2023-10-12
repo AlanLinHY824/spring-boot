@@ -35,7 +35,7 @@ dependencies {
 	intTestImplementation("org.junit.jupiter:junit-jupiter")
 	intTestImplementation("org.springframework:spring-core")
 
-	loader(project(":spring-boot-project:spring-boot-tools:spring-boot-loader"))
+	loader(project(":spring-boot-project:spring-boot-tools:spring-boot-loader-classic"))
 
 	testImplementation(project(":spring-boot-project:spring-boot"))
 	testImplementation(project(":spring-boot-project:spring-boot-tools:spring-boot-test-support"))
@@ -49,7 +49,7 @@ dependencies {
 
 task fullJar(type: Jar) {
 	dependsOn configurations.loader
-	classifier = "full"
+	archiveClassifier = "full"
 	entryCompression = "stored"
 	from(configurations.runtimeClasspath) {
 		into "BOOT-INF/lib"
@@ -66,14 +66,14 @@ task fullJar(type: Jar) {
 	}
 	manifest {
 		attributes(
-			"Main-Class": "org.springframework.boot.loader.JarLauncher",
+			"Main-Class": "org.springframework.boot.loader.launch.JarLauncher",
 			"Start-Class": "org.springframework.boot.cli.SpringCli"
 		)
 	}
 }
 
 def configureArchive(archive) {
-	archive.classifier = "bin"
+	archive.archiveClassifier = "bin"
 	archive.into "spring-${project.version}"
 	archive.from(fullJar) {
 		rename {
@@ -91,7 +91,7 @@ def configureArchive(archive) {
 }
 
 task zip(type: Zip) {
-	classifier = "bin"
+	archiveClassifier = "bin"
 	configureArchive it
 }
 

@@ -27,9 +27,11 @@ import org.springframework.amqp.rabbit.connection.AbstractConnectionFactory.Addr
 import org.springframework.amqp.rabbit.connection.CachingConnectionFactory.CacheMode;
 import org.springframework.amqp.rabbit.connection.CachingConnectionFactory.ConfirmType;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.source.InvalidConfigurationPropertyValueException;
 import org.springframework.boot.convert.DurationUnit;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
+import org.springframework.util.unit.DataSize;
 
 /**
  * Configuration properties for Rabbit.
@@ -43,6 +45,8 @@ import org.springframework.util.StringUtils;
  * @author Artsiom Yudovin
  * @author Franjo Zilic
  * @author Eddú Meléndez
+ * @author Rafael Carvalho
+ * @author Scott Frederick
  * @since 1.0.0
  */
 @ConfigurationProperties(prefix = "spring.rabbitmq")
@@ -129,6 +133,11 @@ public class RabbitProperties {
 	private Duration channelRpcTimeout = Duration.ofMinutes(10);
 
 	/**
+	 * Maximum size of the body of inbound (received) messages.
+	 */
+	private DataSize maxInboundMessageBodySize = DataSize.ofMegabytes(64);
+
+	/**
 	 * Cache configuration.
 	 */
 	private final Cache cache = new Cache();
@@ -203,6 +212,10 @@ public class RabbitProperties {
 	 */
 	public String determineAddresses() {
 		if (CollectionUtils.isEmpty(this.parsedAddresses)) {
+			if (this.host.contains(",")) {
+				throw new InvalidConfigurationPropertyValueException("spring.rabbitmq.host", this.host,
+						"Invalid character ','. Value must be a single host. For multiple hosts, use property 'spring.rabbitmq.addresses' instead.");
+			}
 			return this.host + ":" + determinePort();
 		}
 		List<String> addressStrings = new ArrayList<>();
@@ -354,6 +367,14 @@ public class RabbitProperties {
 		this.channelRpcTimeout = channelRpcTimeout;
 	}
 
+	public DataSize getMaxInboundMessageBodySize() {
+		return this.maxInboundMessageBodySize;
+	}
+
+	public void setMaxInboundMessageBodySize(DataSize maxInboundMessageBodySize) {
+		this.maxInboundMessageBodySize = maxInboundMessageBodySize;
+	}
+
 	public Cache getCache() {
 		return this.cache;
 	}
@@ -379,6 +400,11 @@ public class RabbitProperties {
 		 * provided with the protocol (amqp:// vs. amqps://).
 		 */
 		private Boolean enabled;
+
+		/**
+		 * SSL bundle name.
+		 */
+		private String bundle;
 
 		/**
 		 * Path to the key store that holds the SSL certificate.
@@ -447,7 +473,7 @@ public class RabbitProperties {
 		 * @see #getEnabled() ()
 		 */
 		public boolean determineEnabled() {
-			boolean defaultEnabled = Optional.ofNullable(getEnabled()).orElse(false);
+			boolean defaultEnabled = Optional.ofNullable(getEnabled()).orElse(false) || this.bundle != null;
 			if (CollectionUtils.isEmpty(RabbitProperties.this.parsedAddresses)) {
 				return defaultEnabled;
 			}
@@ -457,6 +483,14 @@ public class RabbitProperties {
 
 		public void setEnabled(Boolean enabled) {
 			this.enabled = enabled;
+		}
+
+		public String getBundle() {
+			return this.bundle;
+		}
+
+		public void setBundle(String bundle) {
+			this.bundle = bundle;
 		}
 
 		public String getKeyStore() {
@@ -729,6 +763,12 @@ public class RabbitProperties {
 		private boolean deBatchingEnabled = true;
 
 		/**
+		 * Whether the container (when stopped) should stop immediately after processing
+		 * the current message or stop after processing all pre-fetched messages.
+		 */
+		private boolean forceStop;
+
+		/**
 		 * Optional properties for a retry interceptor.
 		 */
 		private final ListenerRetry retry = new ListenerRetry();
@@ -773,6 +813,14 @@ public class RabbitProperties {
 
 		public void setDeBatchingEnabled(boolean deBatchingEnabled) {
 			this.deBatchingEnabled = deBatchingEnabled;
+		}
+
+		public boolean isForceStop() {
+			return this.forceStop;
+		}
+
+		public void setForceStop(boolean forceStop) {
+			this.forceStop = forceStop;
 		}
 
 		public ListenerRetry getRetry() {
@@ -1187,6 +1235,12 @@ public class RabbitProperties {
 		private int port = DEFAULT_STREAM_PORT;
 
 		/**
+		 * Virtual host of a RabbitMQ instance with the Stream plugin enabled. When not
+		 * set, spring.rabbitmq.virtual-host is used.
+		 */
+		private String virtualHost;
+
+		/**
 		 * Login user to authenticate to the broker. When not set,
 		 * spring.rabbitmq.username is used.
 		 */
@@ -1217,6 +1271,14 @@ public class RabbitProperties {
 
 		public void setPort(int port) {
 			this.port = port;
+		}
+
+		public String getVirtualHost() {
+			return this.virtualHost;
+		}
+
+		public void setVirtualHost(String virtualHost) {
+			this.virtualHost = virtualHost;
 		}
 
 		public String getUsername() {

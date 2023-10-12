@@ -31,9 +31,7 @@ import org.springframework.test.context.ContextCustomizer;
 import org.springframework.test.context.ContextCustomizerFactory;
 import org.springframework.test.context.TestContextAnnotationUtils;
 import org.springframework.util.Assert;
-import org.springframework.util.ClassUtils;
 import org.springframework.util.ReflectionUtils;
-import org.springframework.util.StringUtils;
 
 /**
  * Spring Test {@link ContextCustomizerFactory} to support
@@ -43,18 +41,19 @@ import org.springframework.util.StringUtils;
  * @author Moritz Halbritter
  * @author Andy Wilkinson
  * @author Phillip Webb
+ * @author Scott Frederick
  */
 class ServiceConnectionContextCustomizerFactory implements ContextCustomizerFactory {
 
 	@Override
 	public ContextCustomizer createContextCustomizer(Class<?> testClass,
 			List<ContextConfigurationAttributes> configAttributes) {
-		List<ContainerConnectionSource<?, ?>> sources = new ArrayList<>();
+		List<ContainerConnectionSource<?>> sources = new ArrayList<>();
 		findSources(testClass, sources);
-		return (sources.isEmpty()) ? null : new ServiceConnectionContextCustomizer(sources);
+		return new ServiceConnectionContextCustomizer(sources);
 	}
 
-	private void findSources(Class<?> clazz, List<ContainerConnectionSource<?, ?>> sources) {
+	private void findSources(Class<?> clazz, List<ContainerConnectionSource<?>> sources) {
 		ReflectionUtils.doWithFields(clazz, (field) -> {
 			MergedAnnotations annotations = MergedAnnotations.from(field);
 			annotations.stream(ServiceConnection.class)
@@ -63,24 +62,37 @@ class ServiceConnectionContextCustomizerFactory implements ContextCustomizerFact
 		if (TestContextAnnotationUtils.searchEnclosingClass(clazz)) {
 			findSources(clazz.getEnclosingClass(), sources);
 		}
+		for (Class<?> implementedInterface : clazz.getInterfaces()) {
+			findSources(implementedInterface, sources);
+		}
 	}
 
-	private ContainerConnectionSource<?, ?> createSource(Field field, MergedAnnotation<ServiceConnection> annotation) {
+	@SuppressWarnings("unchecked")
+	private <C extends Container<?>> ContainerConnectionSource<?> createSource(Field field,
+			MergedAnnotation<ServiceConnection> annotation) {
 		Assert.state(Modifier.isStatic(field.getModifiers()),
 				() -> "@ServiceConnection field '%s' must be static".formatted(field.getName()));
-		String beanNameSuffix = StringUtils.capitalize(ClassUtils.getShortNameAsProperty(field.getDeclaringClass()))
-				+ StringUtils.capitalize(field.getName());
 		Origin origin = new FieldOrigin(field);
 		Object fieldValue = getFieldValue(field);
-		Assert.state(Container.class.isInstance(fieldValue), () -> "Field '%s' in %s must be a %s"
-			.formatted(field.getName(), field.getDeclaringClass().getName(), Container.class.getName()));
-		Container<?> container = (Container<?>) fieldValue;
-		return new ContainerConnectionSource<>(beanNameSuffix, origin, container, annotation);
+		Assert.state(fieldValue instanceof Container, () -> "Field '%s' in %s must be a %s".formatted(field.getName(),
+				field.getDeclaringClass().getName(), Container.class.getName()));
+		Class<C> containerType = (Class<C>) fieldValue.getClass();
+		C container = (C) fieldValue;
+		// container.getDockerImageName() fails if there is no running docker environment
+		// When running tests that doesn't matter, but running AOT processing should be
+		// possible without a Docker environment
+		String dockerImageName = isAotProcessingInProgress() ? null : container.getDockerImageName();
+		return new ContainerConnectionSource<>("test", origin, containerType, dockerImageName, annotation,
+				() -> container);
 	}
 
 	private Object getFieldValue(Field field) {
 		ReflectionUtils.makeAccessible(field);
 		return ReflectionUtils.getField(field, null);
+	}
+
+	private boolean isAotProcessingInProgress() {
+		return Boolean.getBoolean("spring.aot.processing");
 	}
 
 }

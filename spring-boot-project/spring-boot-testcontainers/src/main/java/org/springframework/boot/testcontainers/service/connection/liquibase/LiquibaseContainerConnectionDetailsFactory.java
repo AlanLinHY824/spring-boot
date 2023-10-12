@@ -31,46 +31,42 @@ import org.springframework.boot.testcontainers.service.connection.ServiceConnect
  * @author Andy Wilkinson
  */
 class LiquibaseContainerConnectionDetailsFactory
-		extends ContainerConnectionDetailsFactory<LiquibaseConnectionDetails, JdbcDatabaseContainer<?>> {
+		extends ContainerConnectionDetailsFactory<JdbcDatabaseContainer<?>, LiquibaseConnectionDetails> {
 
 	@Override
 	protected LiquibaseConnectionDetails getContainerConnectionDetails(
-			ContainerConnectionSource<LiquibaseConnectionDetails, JdbcDatabaseContainer<?>> source) {
+			ContainerConnectionSource<JdbcDatabaseContainer<?>> source) {
 		return new LiquibaseContainerConnectionDetails(source);
 	}
 
 	/**
 	 * {@link LiquibaseConnectionDetails} backed by a {@link JdbcDatabaseContainer}.
 	 */
-	private static final class LiquibaseContainerConnectionDetails extends ContainerConnectionDetails
-			implements LiquibaseConnectionDetails {
+	private static final class LiquibaseContainerConnectionDetails
+			extends ContainerConnectionDetails<JdbcDatabaseContainer<?>> implements LiquibaseConnectionDetails {
 
-		private final JdbcDatabaseContainer<?> container;
-
-		private LiquibaseContainerConnectionDetails(
-				ContainerConnectionSource<LiquibaseConnectionDetails, JdbcDatabaseContainer<?>> source) {
+		private LiquibaseContainerConnectionDetails(ContainerConnectionSource<JdbcDatabaseContainer<?>> source) {
 			super(source);
-			this.container = source.getContainer();
 		}
 
 		@Override
 		public String getUsername() {
-			return this.container.getUsername();
+			return getContainer().getUsername();
 		}
 
 		@Override
 		public String getPassword() {
-			return this.container.getPassword();
+			return getContainer().getPassword();
 		}
 
 		@Override
 		public String getJdbcUrl() {
-			return this.container.getJdbcUrl();
+			return getContainer().getJdbcUrl();
 		}
 
 		@Override
 		public String getDriverClassName() {
-			return this.container.getDriverClassName();
+			return getContainer().getDriverClassName();
 		}
 
 	}

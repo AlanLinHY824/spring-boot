@@ -24,9 +24,13 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Stream;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+
 import org.springframework.core.ResolvableType;
 import org.springframework.core.annotation.AnnotationAwareOrderComparator;
 import org.springframework.core.io.support.SpringFactoriesLoader;
+import org.springframework.core.io.support.SpringFactoriesLoader.FailureHandler;
 import org.springframework.util.Assert;
 
 /**
@@ -39,7 +43,9 @@ import org.springframework.util.Assert;
  */
 public class ConnectionDetailsFactories {
 
-	private List<Registration<?, ?>> registrations = new ArrayList<>();
+	private static final Log logger = LogFactory.getLog(ConnectionDetailsFactories.class);
+
+	private final List<Registration<?, ?>> registrations = new ArrayList<>();
 
 	public ConnectionDetailsFactories() {
 		this(SpringFactoriesLoader.forDefaultResourceLocation(ConnectionDetailsFactory.class.getClassLoader()));
@@ -47,7 +53,8 @@ public class ConnectionDetailsFactories {
 
 	@SuppressWarnings({ "rawtypes", "unchecked" })
 	ConnectionDetailsFactories(SpringFactoriesLoader loader) {
-		List<ConnectionDetailsFactory> factories = loader.load(ConnectionDetailsFactory.class);
+		List<ConnectionDetailsFactory> factories = loader.load(ConnectionDetailsFactory.class,
+				FailureHandler.logging(logger));
 		Stream<Registration<?, ?>> registrations = factories.stream().map(Registration::get);
 		registrations.filter(Objects::nonNull).forEach(this.registrations::add);
 	}
@@ -58,10 +65,16 @@ public class ConnectionDetailsFactories {
 	 * given source.
 	 * @param <S> the source type
 	 * @param source the source
-	 * @return a list of {@link ConnectionDetails} instances.
+	 * @param required if a connection details result is required
+	 * @return a map of {@link ConnectionDetails} instances
+	 * @throws ConnectionDetailsFactoryNotFoundException if a result is required but no
+	 * connection details factory is registered for the source
+	 * @throws ConnectionDetailsNotFoundException if a result is required but no
+	 * connection details instance was created from a registered factory
 	 */
-	public <S> Map<Class<?>, ConnectionDetails> getConnectionDetails(S source) {
-		List<Registration<S, ?>> registrations = getRegistrations(source);
+	public <S> Map<Class<?>, ConnectionDetails> getConnectionDetails(S source, boolean required)
+			throws ConnectionDetailsFactoryNotFoundException, ConnectionDetailsNotFoundException {
+		List<Registration<S, ?>> registrations = getRegistrations(source, required);
 		Map<Class<?>, ConnectionDetails> result = new LinkedHashMap<>();
 		for (Registration<S, ?> registration : registrations) {
 			ConnectionDetails connectionDetails = registration.factory().getConnectionDetails(source);
@@ -72,11 +85,14 @@ public class ConnectionDetailsFactories {
 					.formatted(connectionDetailsType.getName()));
 			}
 		}
+		if (required && result.isEmpty()) {
+			throw new ConnectionDetailsNotFoundException(source);
+		}
 		return Map.copyOf(result);
 	}
 
 	@SuppressWarnings("unchecked")
-	<S> List<Registration<S, ?>> getRegistrations(S source) {
+	<S> List<Registration<S, ?>> getRegistrations(S source, boolean required) {
 		Class<S> sourceType = (Class<S>) source.getClass();
 		List<Registration<S, ?>> result = new ArrayList<>();
 		for (Registration<?, ?> candidate : this.registrations) {
@@ -84,7 +100,7 @@ public class ConnectionDetailsFactories {
 				result.add((Registration<S, ?>) candidate);
 			}
 		}
-		if (result.isEmpty()) {
+		if (required && result.isEmpty()) {
 			throw new ConnectionDetailsFactoryNotFoundException(source);
 		}
 		result.sort(Comparator.comparing(Registration::factory, AnnotationAwareOrderComparator.INSTANCE));

@@ -31,14 +31,19 @@ import io.lettuce.core.resource.DefaultClientResources;
 import io.lettuce.core.tracing.Tracing;
 import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledForJreRange;
+import org.junit.jupiter.api.condition.JRE;
 
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.autoconfigure.data.redis.RedisProperties.Pool;
+import org.springframework.boot.autoconfigure.ssl.SslAutoConfiguration;
 import org.springframework.boot.test.context.assertj.AssertableApplicationContext;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.boot.test.context.runner.ContextConsumer;
+import org.springframework.boot.testsupport.assertj.SimpleAsyncTaskExecutorAssert;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.task.SimpleAsyncTaskExecutor;
 import org.springframework.data.redis.connection.RedisClusterConfiguration;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.connection.RedisNode;
@@ -79,7 +84,7 @@ import static org.mockito.Mockito.mock;
 class RedisAutoConfigurationTests {
 
 	private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
-		.withConfiguration(AutoConfigurations.of(RedisAutoConfiguration.class));
+		.withConfiguration(AutoConfigurations.of(RedisAutoConfiguration.class, SslAutoConfiguration.class));
 
 	@Test
 	void testDefaultRedisConfiguration() {
@@ -142,9 +147,9 @@ class RedisAutoConfigurationTests {
 	@Test
 	void testOverrideUrlRedisConfiguration() {
 		this.contextRunner
-			.withPropertyValues("spring.data.redis.host:foo", "spring.data.redis.password:xyz",
-					"spring.data.redis.port:1000", "spring.data.redis.ssl:false",
-					"spring.data.redis.url:rediss://user:password@example:33")
+			.withPropertyValues("spring.data.redis.host:foo", "spring.redis.data.user:alice",
+					"spring.data.redis.password:xyz", "spring.data.redis.port:1000",
+					"spring.data.redis.ssl.enabled:false", "spring.data.redis.url:rediss://user:password@example:33")
 			.run((context) -> {
 				LettuceConnectionFactory cf = context.getBean(LettuceConnectionFactory.class);
 				assertThat(cf.getHostName()).isEqualTo("example");
@@ -547,6 +552,56 @@ class RedisAutoConfigurationTests {
 			assertThat(configuration.getPassword().get()).isEqualTo("password-1".toCharArray());
 			assertThat(configuration.getClusterNodes()).containsExactly(new RedisNode("node-1", 12345),
 					new RedisNode("node-2", 23456));
+		});
+	}
+
+	@Test
+	void testRedisConfigurationWithSslEnabled() {
+		this.contextRunner.withPropertyValues("spring.data.redis.ssl.enabled:true").run((context) -> {
+			LettuceConnectionFactory cf = context.getBean(LettuceConnectionFactory.class);
+			assertThat(cf.isUseSsl()).isTrue();
+		});
+	}
+
+	@Test
+	void testRedisConfigurationWithSslBundle() {
+		this.contextRunner
+			.withPropertyValues("spring.data.redis.ssl.bundle:test-bundle",
+					"spring.ssl.bundle.jks.test-bundle.keystore.location:classpath:test.jks",
+					"spring.ssl.bundle.jks.test-bundle.keystore.password:secret",
+					"spring.ssl.bundle.jks.test-bundle.key.password:password")
+			.run((context) -> {
+				LettuceConnectionFactory cf = context.getBean(LettuceConnectionFactory.class);
+				assertThat(cf.isUseSsl()).isTrue();
+			});
+	}
+
+	@Test
+	void testRedisConfigurationWithSslDisabledBundle() {
+		this.contextRunner
+			.withPropertyValues("spring.data.redis.ssl.enabled:false", "spring.data.redis.ssl.bundle:test-bundle")
+			.run((context) -> {
+				LettuceConnectionFactory cf = context.getBean(LettuceConnectionFactory.class);
+				assertThat(cf.isUseSsl()).isFalse();
+			});
+	}
+
+	@Test
+	void shouldUsePlatformThreadsByDefault() {
+		this.contextRunner.run((context) -> {
+			LettuceConnectionFactory factory = context.getBean(LettuceConnectionFactory.class);
+			assertThat(factory).extracting("executor").isNull();
+		});
+	}
+
+	@Test
+	@EnabledForJreRange(min = JRE.JAVA_21)
+	void shouldUseVirtualThreadsIfEnabled() {
+		this.contextRunner.withPropertyValues("spring.threads.virtual.enabled=true").run((context) -> {
+			LettuceConnectionFactory factory = context.getBean(LettuceConnectionFactory.class);
+			SimpleAsyncTaskExecutor executor = (SimpleAsyncTaskExecutor) ReflectionTestUtils.getField(factory,
+					"executor");
+			SimpleAsyncTaskExecutorAssert.assertThat(executor).usesVirtualThreads();
 		});
 	}
 

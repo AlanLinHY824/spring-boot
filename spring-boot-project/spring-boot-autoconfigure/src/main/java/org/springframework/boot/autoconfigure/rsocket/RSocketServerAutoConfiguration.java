@@ -16,10 +16,13 @@
 
 package org.springframework.boot.autoconfigure.rsocket;
 
+import java.util.function.Consumer;
+
 import io.rsocket.core.RSocketServer;
 import io.rsocket.frame.decoder.PayloadDecoder;
 import io.rsocket.transport.netty.server.TcpServerTransport;
 import reactor.netty.http.server.HttpServer;
+import reactor.netty.http.server.WebsocketServerSpec.Builder;
 
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
@@ -31,20 +34,23 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.boot.autoconfigure.reactor.netty.ReactorNettyConfigurations;
+import org.springframework.boot.autoconfigure.rsocket.RSocketProperties.Server.Spec;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.context.properties.PropertyMapper;
 import org.springframework.boot.rsocket.context.RSocketServerBootstrap;
 import org.springframework.boot.rsocket.netty.NettyRSocketServerFactory;
 import org.springframework.boot.rsocket.server.RSocketServerCustomizer;
 import org.springframework.boot.rsocket.server.RSocketServerFactory;
+import org.springframework.boot.ssl.SslBundles;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.core.io.buffer.NettyDataBufferFactory;
-import org.springframework.http.client.reactive.ReactorResourceFactory;
+import org.springframework.http.client.ReactorResourceFactory;
 import org.springframework.messaging.rsocket.RSocketStrategies;
 import org.springframework.messaging.rsocket.annotation.support.RSocketMessageHandler;
+import org.springframework.util.unit.DataSize;
 
 /**
  * {@link EnableAutoConfiguration Auto-configuration} for RSocket servers. In the case of
@@ -54,6 +60,7 @@ import org.springframework.messaging.rsocket.annotation.support.RSocketMessageHa
  * server port is configured, a new standalone RSocket server is created.
  *
  * @author Brian Clozel
+ * @author Scott Frederick
  * @since 2.2.0
  */
 @AutoConfiguration(after = RSocketStrategiesAutoConfiguration.class)
@@ -71,7 +78,18 @@ public class RSocketServerAutoConfiguration {
 		RSocketWebSocketNettyRouteProvider rSocketWebsocketRouteProvider(RSocketProperties properties,
 				RSocketMessageHandler messageHandler, ObjectProvider<RSocketServerCustomizer> customizers) {
 			return new RSocketWebSocketNettyRouteProvider(properties.getServer().getMappingPath(),
-					messageHandler.responder(), customizers.orderedStream());
+					messageHandler.responder(), customizeWebsocketServerSpec(properties.getServer().getSpec()),
+					customizers.orderedStream());
+		}
+
+		private Consumer<Builder> customizeWebsocketServerSpec(Spec spec) {
+			return (builder) -> {
+				PropertyMapper map = PropertyMapper.get().alwaysApplyingWhenNonNull();
+				map.from(spec.getProtocols()).to(builder::protocols);
+				map.from(spec.getMaxFramePayloadLength()).asInt(DataSize::toBytes).to(builder::maxFramePayloadLength);
+				map.from(spec.isHandlePing()).to(builder::handlePing);
+				map.from(spec.isCompress()).to(builder::compress);
+			};
 		}
 
 	}
@@ -85,7 +103,7 @@ public class RSocketServerAutoConfiguration {
 		@Bean
 		@ConditionalOnMissingBean
 		RSocketServerFactory rSocketServerFactory(RSocketProperties properties, ReactorResourceFactory resourceFactory,
-				ObjectProvider<RSocketServerCustomizer> customizers) {
+				ObjectProvider<RSocketServerCustomizer> customizers, ObjectProvider<SslBundles> sslBundles) {
 			NettyRSocketServerFactory factory = new NettyRSocketServerFactory();
 			factory.setResourceFactory(resourceFactory);
 			factory.setTransport(properties.getServer().getTransport());
@@ -94,6 +112,7 @@ public class RSocketServerAutoConfiguration {
 			map.from(properties.getServer().getPort()).to(factory::setPort);
 			map.from(properties.getServer().getFragmentSize()).to(factory::setFragmentSize);
 			map.from(properties.getServer().getSsl()).to(factory::setSsl);
+			factory.setSslBundles(sslBundles.getIfAvailable());
 			factory.setRSocketServerCustomizers(customizers.orderedStream().toList());
 			return factory;
 		}

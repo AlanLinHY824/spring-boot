@@ -72,14 +72,19 @@ class WarPluginAction implements PluginApplicationAction {
 	private TaskProvider<BootWar> configureBootWarTask(Project project) {
 		Configuration developmentOnly = project.getConfigurations()
 			.getByName(SpringBootPlugin.DEVELOPMENT_ONLY_CONFIGURATION_NAME);
+		Configuration testAndDevelopmentOnly = project.getConfigurations()
+			.getByName(SpringBootPlugin.TEST_AND_DEVELOPMENT_ONLY_CONFIGURATION_NAME);
 		Configuration productionRuntimeClasspath = project.getConfigurations()
 			.getByName(SpringBootPlugin.PRODUCTION_RUNTIME_CLASSPATH_CONFIGURATION_NAME);
-		Callable<FileCollection> classpath = () -> project.getExtensions()
+		SourceSet mainSourceSet = project.getExtensions()
 			.getByType(SourceSetContainer.class)
-			.getByName(SourceSet.MAIN_SOURCE_SET_NAME)
-			.getRuntimeClasspath()
+			.getByName(SourceSet.MAIN_SOURCE_SET_NAME);
+		Configuration runtimeClasspath = project.getConfigurations()
+			.getByName(mainSourceSet.getRuntimeClasspathConfigurationName());
+		Callable<FileCollection> classpath = () -> mainSourceSet.getRuntimeClasspath()
 			.minus(providedRuntimeConfiguration(project))
 			.minus((developmentOnly.minus(productionRuntimeClasspath)))
+			.minus((testAndDevelopmentOnly.minus(productionRuntimeClasspath)))
 			.filter(new JarTypeFileSpec());
 		TaskProvider<ResolveMainClassName> resolveMainClassName = project.getTasks()
 			.named(SpringBootPlugin.RESOLVE_MAIN_CLASS_NAME_TASK_NAME, ResolveMainClassName.class);
@@ -97,6 +102,7 @@ class WarPluginAction implements PluginApplicationAction {
 							? manifestStartClass : resolveMainClassName.get().readMainClassName()));
 				bootWar.getTargetJavaVersion()
 					.set(project.provider(() -> javaPluginExtension(project).getTargetCompatibility()));
+				bootWar.resolvedArtifacts(runtimeClasspath.getIncoming().getArtifacts().getResolvedArtifacts());
 			});
 		bootWarProvider.map(War::getClasspath);
 		return bootWarProvider;

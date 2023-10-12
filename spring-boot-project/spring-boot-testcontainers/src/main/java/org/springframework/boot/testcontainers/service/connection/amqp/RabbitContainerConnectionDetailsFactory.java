@@ -36,46 +36,37 @@ import org.springframework.boot.testcontainers.service.connection.ServiceConnect
  * @author Phillip Webb
  */
 class RabbitContainerConnectionDetailsFactory
-		extends ContainerConnectionDetailsFactory<RabbitConnectionDetails, RabbitMQContainer> {
+		extends ContainerConnectionDetailsFactory<RabbitMQContainer, RabbitConnectionDetails> {
 
 	@Override
 	protected RabbitConnectionDetails getContainerConnectionDetails(
-			ContainerConnectionSource<RabbitConnectionDetails, RabbitMQContainer> source) {
+			ContainerConnectionSource<RabbitMQContainer> source) {
 		return new RabbitMqContainerConnectionDetails(source);
 	}
 
 	/**
 	 * {@link RabbitConnectionDetails} backed by a {@link ContainerConnectionSource}.
 	 */
-	private static final class RabbitMqContainerConnectionDetails extends ContainerConnectionDetails
+	private static final class RabbitMqContainerConnectionDetails extends ContainerConnectionDetails<RabbitMQContainer>
 			implements RabbitConnectionDetails {
 
-		private final RabbitMQContainer container;
-
-		private RabbitMqContainerConnectionDetails(
-				ContainerConnectionSource<RabbitConnectionDetails, RabbitMQContainer> source) {
+		private RabbitMqContainerConnectionDetails(ContainerConnectionSource<RabbitMQContainer> source) {
 			super(source);
-			this.container = source.getContainer();
 		}
 
 		@Override
 		public String getUsername() {
-			return this.container.getAdminUsername();
+			return getContainer().getAdminUsername();
 		}
 
 		@Override
 		public String getPassword() {
-			return this.container.getAdminPassword();
-		}
-
-		@Override
-		public String getVirtualHost() {
-			return null;
+			return getContainer().getAdminPassword();
 		}
 
 		@Override
 		public List<Address> getAddresses() {
-			URI uri = URI.create(this.container.getAmqpUrl());
+			URI uri = URI.create(getContainer().getAmqpUrl());
 			return List.of(new Address(uri.getHost(), uri.getPort()));
 		}
 

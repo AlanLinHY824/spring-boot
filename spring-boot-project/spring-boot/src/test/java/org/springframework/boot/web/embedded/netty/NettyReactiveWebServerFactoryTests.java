@@ -23,6 +23,7 @@ import java.util.Arrays;
 
 import io.netty.channel.Channel;
 import org.awaitility.Awaitility;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.mockito.InOrder;
 import reactor.core.CoreSubscriber;
@@ -39,6 +40,7 @@ import org.springframework.boot.web.server.PortInUseException;
 import org.springframework.boot.web.server.Shutdown;
 import org.springframework.boot.web.server.Ssl;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.ReactorResourceFactory;
 import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.http.server.reactive.ReactorHttpHandlerAdapter;
 import org.springframework.web.reactive.function.BodyInserters;
@@ -46,6 +48,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
+import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.inOrder;
@@ -79,6 +82,23 @@ class NettyReactiveWebServerFactoryTests extends AbstractReactiveWebServerFactor
 		assertThat(this.webServer.getPort()).isEqualTo(-1);
 	}
 
+	@Test
+	void resourceFactoryAndWebServerLifecycle() {
+		NettyReactiveWebServerFactory factory = getFactory();
+		factory.setPort(0);
+		ReactorResourceFactory resourceFactory = new ReactorResourceFactory();
+		factory.setResourceFactory(resourceFactory);
+		this.webServer = factory.getWebServer(new EchoHandler());
+		assertThatNoException().isThrownBy(() -> {
+			resourceFactory.start();
+			this.webServer.start();
+			this.webServer.stop();
+			resourceFactory.stop();
+			resourceFactory.start();
+			this.webServer.start();
+		});
+	}
+
 	private void portMatchesRequirement(PortInUseException exception) {
 		assertThat(exception.getPort()).isEqualTo(this.webServer.getPort());
 	}
@@ -109,8 +129,7 @@ class NettyReactiveWebServerFactoryTests extends AbstractReactiveWebServerFactor
 	@Test
 	void whenSslIsConfiguredWithAValidAliasARequestSucceeds() {
 		Mono<String> result = testSslWithAlias("test-alias");
-		StepVerifier.setDefaultTimeout(Duration.ofSeconds(30));
-		StepVerifier.create(result).expectNext("Hello World").verifyComplete();
+		StepVerifier.create(result).expectNext("Hello World").expectComplete().verify(Duration.ofSeconds(30));
 	}
 
 	@Test
@@ -134,6 +153,12 @@ class NettyReactiveWebServerFactoryTests extends AbstractReactiveWebServerFactor
 			}
 		});
 		this.webServer.stop();
+	}
+
+	@Override
+	@Test
+	@Disabled("Reactor Netty does not support mutiple ports")
+	protected void startedLogMessageWithMultiplePorts() {
 	}
 
 	protected Mono<String> testSslWithAlias(String alias) {
@@ -165,6 +190,16 @@ class NettyReactiveWebServerFactoryTests extends AbstractReactiveWebServerFactor
 		return new NettyReactiveWebServerFactory(0);
 	}
 
+	@Override
+	protected String startedLogMessage() {
+		return ((NettyWebServer) this.webServer).getStartedLogMessage();
+	}
+
+	@Override
+	protected void addConnector(int port, AbstractReactiveWebServerFactory factory) {
+		throw new UnsupportedOperationException("Reactor Netty does not support multiple ports");
+	}
+
 	static class NoPortNettyReactiveWebServerFactory extends NettyReactiveWebServerFactory {
 
 		NoPortNettyReactiveWebServerFactory(int port) {
@@ -183,7 +218,7 @@ class NettyReactiveWebServerFactoryTests extends AbstractReactiveWebServerFactor
 
 		NoPortNettyWebServer(HttpServer httpServer, ReactorHttpHandlerAdapter handlerAdapter, Duration lifecycleTimeout,
 				Shutdown shutdown) {
-			super(httpServer, handlerAdapter, lifecycleTimeout, shutdown);
+			super(httpServer, handlerAdapter, lifecycleTimeout, shutdown, null);
 		}
 
 		@Override

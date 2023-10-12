@@ -740,6 +740,14 @@ Metrics are tagged by the name of the executor, which is derived from the bean n
 
 
 
+[[actuator.metrics.supported.jms]]
+==== JMS Metrics
+Auto-configuration enables the instrumentation of all available `JmsTemplate` beans.
+`JmsMessagingTemplate` instances built with instrumented `JmsTemplate` beans will also record observations.
+See the {spring-framework-docs}/integration/observability.html#observability.jms.publish[Spring Framework reference documentation for more information on produced observations].
+
+
+
 [[actuator.metrics.supported.spring-mvc]]
 ==== Spring MVC Metrics
 
@@ -870,7 +878,7 @@ See the {spring-batch-docs}monitoring-and-metrics.html[Spring Batch reference do
 [[actuator.metrics.supported.spring-graphql]]
 ==== Spring GraphQL Metrics
 
-See the {spring-graphql-docs}[Spring GraphQL reference documentation].
+See the {spring-graphql-docs}/observability.html[Spring GraphQL reference documentation].
 
 
 
@@ -951,7 +959,7 @@ Auto-configuration enables the instrumentation of all available RabbitMQ connect
 
 [[actuator.metrics.supported.spring-integration]]
 ==== Spring Integration Metrics
-Spring Integration automatically provides {spring-integration-docs}system-management.html#micrometer-integration[Micrometer support] whenever a `MeterRegistry` bean is available.
+Spring Integration automatically provides {spring-integration-docs}metrics.html#micrometer-integration[Micrometer support] whenever a `MeterRegistry` bean is available.
 Metrics are published under the `spring.integration.` meter name.
 
 
@@ -1100,19 +1108,8 @@ These use the global registry that is not Spring-managed.
 
 [[actuator.metrics.customizing.common-tags]]
 ==== Common Tags
-Common tags are generally used for dimensional drill-down on the operating environment, such as host, instance, region, stack, and others.
-Commons tags are applied to all meters and can be configured, as the following example shows:
 
-[source,yaml,indent=0,subs="verbatim",configprops,configblocks]
-----
-	management:
-	  metrics:
-	    tags:
-	      region: "us-east-1"
-	      stack: "prod"
-----
-
-The preceding example adds `region` and `stack` tags to all meters with a value of `us-east-1` and `prod`, respectively.
+You can configure common tags using the <<actuator#actuator.observability.common-key-values, configprop:management.observations.key-values[] property>>.
 
 NOTE: The order of common tags is important if you use Graphite.
 As the order of common tags cannot be guaranteed by using this approach, Graphite users are advised to define a custom `MeterFilter` instead.

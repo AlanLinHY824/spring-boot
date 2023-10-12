@@ -97,27 +97,37 @@ public class OAuth2AuthorizationServerProperties implements InitializingBean {
 		/**
 		 * Authorization Server's OAuth 2.0 Authorization Endpoint.
 		 */
-		private String authorizationUri;
+		private String authorizationUri = "/oauth2/authorize";
+
+		/**
+		 * Authorization Server's OAuth 2.0 Device Authorization Endpoint.
+		 */
+		private String deviceAuthorizationUri = "/oauth2/device_authorization";
+
+		/**
+		 * Authorization Server's OAuth 2.0 Device Verification Endpoint.
+		 */
+		private String deviceVerificationUri = "/oauth2/device_verification";
 
 		/**
 		 * Authorization Server's OAuth 2.0 Token Endpoint.
 		 */
-		private String tokenUri;
+		private String tokenUri = "/oauth2/token";
 
 		/**
 		 * Authorization Server's JWK Set Endpoint.
 		 */
-		private String jwkSetUri;
+		private String jwkSetUri = "/oauth2/jwks";
 
 		/**
 		 * Authorization Server's OAuth 2.0 Token Revocation Endpoint.
 		 */
-		private String tokenRevocationUri;
+		private String tokenRevocationUri = "/oauth2/revoke";
 
 		/**
 		 * Authorization Server's OAuth 2.0 Token Introspection Endpoint.
 		 */
-		private String tokenIntrospectionUri;
+		private String tokenIntrospectionUri = "/oauth2/introspect";
 
 		/**
 		 * OpenID Connect 1.0 endpoints.
@@ -131,6 +141,22 @@ public class OAuth2AuthorizationServerProperties implements InitializingBean {
 
 		public void setAuthorizationUri(String authorizationUri) {
 			this.authorizationUri = authorizationUri;
+		}
+
+		public String getDeviceAuthorizationUri() {
+			return this.deviceAuthorizationUri;
+		}
+
+		public void setDeviceAuthorizationUri(String deviceAuthorizationUri) {
+			this.deviceAuthorizationUri = deviceAuthorizationUri;
+		}
+
+		public String getDeviceVerificationUri() {
+			return this.deviceVerificationUri;
+		}
+
+		public void setDeviceVerificationUri(String deviceVerificationUri) {
+			this.deviceVerificationUri = deviceVerificationUri;
 		}
 
 		public String getTokenUri() {
@@ -179,17 +205,17 @@ public class OAuth2AuthorizationServerProperties implements InitializingBean {
 		/**
 		 * Authorization Server's OpenID Connect 1.0 Logout Endpoint.
 		 */
-		private String logoutUri;
+		private String logoutUri = "/connect/logout";
 
 		/**
 		 * Authorization Server's OpenID Connect 1.0 Client Registration Endpoint.
 		 */
-		private String clientRegistrationUri;
+		private String clientRegistrationUri = "/connect/register";
 
 		/**
 		 * Authorization Server's OpenID Connect 1.0 UserInfo Endpoint.
 		 */
-		private String userInfoUri;
+		private String userInfoUri = "/userinfo";
 
 		public String getLogoutUri() {
 			return this.logoutUri;
@@ -232,12 +258,12 @@ public class OAuth2AuthorizationServerProperties implements InitializingBean {
 		 * Whether the client is required to provide a proof key challenge and verifier
 		 * when performing the Authorization Code Grant flow.
 		 */
-		private boolean requireProofKey;
+		private boolean requireProofKey = false;
 
 		/**
 		 * Whether authorization consent is required when the client requests access.
 		 */
-		private boolean requireAuthorizationConsent;
+		private boolean requireAuthorizationConsent = false;
 
 		/**
 		 * URL for the client's JSON Web Key Set.
@@ -418,33 +444,38 @@ public class OAuth2AuthorizationServerProperties implements InitializingBean {
 		/**
 		 * Time-to-live for an authorization code.
 		 */
-		private Duration authorizationCodeTimeToLive;
+		private Duration authorizationCodeTimeToLive = Duration.ofMinutes(5);
 
 		/**
 		 * Time-to-live for an access token.
 		 */
-		private Duration accessTokenTimeToLive;
+		private Duration accessTokenTimeToLive = Duration.ofMinutes(5);
 
 		/**
 		 * Token format for an access token.
 		 */
-		private String accessTokenFormat;
+		private String accessTokenFormat = "self-contained";
+
+		/**
+		 * Time-to-live for a device code.
+		 */
+		private Duration deviceCodeTimeToLive = Duration.ofMinutes(5);
 
 		/**
 		 * Whether refresh tokens are reused or a new refresh token is issued when
 		 * returning the access token response.
 		 */
-		private boolean reuseRefreshTokens;
+		private boolean reuseRefreshTokens = true;
 
 		/**
 		 * Time-to-live for a refresh token.
 		 */
-		private Duration refreshTokenTimeToLive;
+		private Duration refreshTokenTimeToLive = Duration.ofMinutes(60);
 
 		/**
 		 * JWS algorithm for signing the ID Token.
 		 */
-		private String idTokenSignatureAlgorithm;
+		private String idTokenSignatureAlgorithm = "RS256";
 
 		public Duration getAuthorizationCodeTimeToLive() {
 			return this.authorizationCodeTimeToLive;
@@ -468,6 +499,14 @@ public class OAuth2AuthorizationServerProperties implements InitializingBean {
 
 		public void setAccessTokenFormat(String accessTokenFormat) {
 			this.accessTokenFormat = accessTokenFormat;
+		}
+
+		public Duration getDeviceCodeTimeToLive() {
+			return this.deviceCodeTimeToLive;
+		}
+
+		public void setDeviceCodeTimeToLive(Duration deviceCodeTimeToLive) {
+			this.deviceCodeTimeToLive = deviceCodeTimeToLive;
 		}
 
 		public boolean isReuseRefreshTokens() {

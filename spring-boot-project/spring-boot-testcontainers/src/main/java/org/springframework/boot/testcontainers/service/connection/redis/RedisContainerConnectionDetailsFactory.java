@@ -34,36 +34,30 @@ import org.springframework.boot.testcontainers.service.connection.ServiceConnect
  * @author Phillip Webb
  */
 class RedisContainerConnectionDetailsFactory
-		extends ContainerConnectionDetailsFactory<RedisConnectionDetails, Container<?>> {
+		extends ContainerConnectionDetailsFactory<Container<?>, RedisConnectionDetails> {
 
 	RedisContainerConnectionDetailsFactory() {
 		super("redis");
 	}
 
 	@Override
-	public RedisConnectionDetails getContainerConnectionDetails(
-			ContainerConnectionSource<RedisConnectionDetails, Container<?>> source) {
+	public RedisConnectionDetails getContainerConnectionDetails(ContainerConnectionSource<Container<?>> source) {
 		return new RedisContainerConnectionDetails(source);
 	}
 
 	/**
 	 * {@link RedisConnectionDetails} backed by a {@link ContainerConnectionSource}.
 	 */
-	private static final class RedisContainerConnectionDetails extends ContainerConnectionDetails
+	private static final class RedisContainerConnectionDetails extends ContainerConnectionDetails<Container<?>>
 			implements RedisConnectionDetails {
 
-		private final Standalone standalone;
-
-		private RedisContainerConnectionDetails(
-				ContainerConnectionSource<RedisConnectionDetails, Container<?>> source) {
+		private RedisContainerConnectionDetails(ContainerConnectionSource<Container<?>> source) {
 			super(source);
-			this.standalone = Standalone.of(source.getContainer().getHost(),
-					source.getContainer().getFirstMappedPort());
 		}
 
 		@Override
 		public Standalone getStandalone() {
-			return this.standalone;
+			return Standalone.of(getContainer().getHost(), getContainer().getFirstMappedPort());
 		}
 
 	}

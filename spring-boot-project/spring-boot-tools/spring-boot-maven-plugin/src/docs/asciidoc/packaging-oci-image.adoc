@@ -28,7 +28,8 @@ The `spring-boot-devtools` and `spring-boot-docker-compose` modules are automati
 [[build-image.docker-daemon]]
 == Docker Daemon
 The `build-image` goal requires access to a Docker daemon.
-By default, it will communicate with a Docker daemon over a local connection.
+The goal will inspect local Docker CLI https://docs.docker.com/engine/reference/commandline/cli/#configuration-files[configuration files] to determine the current https://docs.docker.com/engine/context/working-with-contexts/[context] and use the context connection information to communicate with a Docker daemon.
+If the current context can not be determined or the context does not have connection information, then the goal will use a default local connection.
 This works with https://docs.docker.com/install/[Docker Engine] on all supported platforms without configuration.
 
 Environment variables can be set to configure the `build-image` goal to use an alternative local or remote connection.
@@ -36,6 +37,12 @@ The following table shows the environment variables and their values:
 
 |===
 | Environment variable | Description
+
+| DOCKER_CONFIG
+| Location of Docker CLI https://docs.docker.com/engine/reference/commandline/cli/#configuration-files[configuration files] used to determine the current context (defaults to `$HOME/.docker`)
+
+| DOCKER_CONTEXT
+| Name of a https://docs.docker.com/engine/context/working-with-contexts/[context] that should be used to retrieve host information from Docker CLI configuration files (overrides `DOCKER_HOST`)
 
 | DOCKER_HOST
 | URL containing the host and port for the Docker daemon - for example `tcp://192.168.99.100:2376`
@@ -52,6 +59,9 @@ The following table summarizes the available parameters:
 
 |===
 | Parameter | Description
+
+| `context`
+| Name of a https://docs.docker.com/engine/context/working-with-contexts/[context] that should be used to retrieve host information from Docker CLI https://docs.docker.com/engine/reference/commandline/cli/#configuration-files[configuration files]
 
 | `host`
 | URL containing the host and port for the Docker daemon - for example `tcp://192.168.99.100:2376`
@@ -121,7 +131,7 @@ The following table summarizes the available parameters and their default values
 | `builder` +
 (`spring-boot.build-image.builder`)
 | Name of the Builder image to use.
-| `paketobuildpacks/builder:base`
+| `paketobuildpacks/builder-jammy-base:latest`
 
 | `runImage` +
 (`spring-boot.build-image.runImage`)
@@ -192,16 +202,19 @@ The value supplied will be passed unvalidated to Docker when creating the builde
 The values provided to the `tags` option should be full image references in the form of `[image name]:[tag]` or `[repository]/[image name]:[tag]`.
 |
 
-| `caches`
-| Cache volume names that should be used by the builder instead of generating random names.
-|
+| `buildWorkspace`
+| A temporary workspace that will be used by the builder and buildpacks to store files during image building.
+The value can be a named volume or a bind mount location.
+| A named volume in the Docker daemon, with a name derived from the image name.
 
 | `buildCache`
 | A cache containing layers created by buildpacks and used by the image building process.
+The value can be a named volume or a bind mount location.
 | A named volume in the Docker daemon, with a name derived from the image name.
 
 | `launchCache`
 | A cache containing layers created by buildpacks and used by the image launching process.
+The value can be a named volume or a bind mount location.
 | A named volume in the Docker daemon, with a name derived from the image name.
 
 | `createdDate` +
@@ -216,6 +229,10 @@ The value must be a string in the ISO 8601 instant format, or `now` to use the c
 | The path to a directory that application contents will be uploaded to in the builder image.
 Application contents will also be in this location in the generated image.
 | `/workspace`
+
+| `securityOptions`
+| https://docs.docker.com/engine/reference/run/#security-configuration[Security options] that will be applied to the builder container, provided as an array of string values
+| `["label=disable"]` on Linux and macOS, `[]` on Windows
 
 |===
 
@@ -397,7 +414,7 @@ include::../maven/packaging-oci-image/docker-pom-authentication-command-line.xml
 ----
 
 [[build-image.examples.caches]]
-=== Builder Cache Configuration
+=== Builder Cache and Workspace Configuration
 
 The CNB builder caches layers that are used when building and launching an image.
 By default, these caches are stored as named volumes in the Docker daemon with names that are derived from the full name of the target image.
@@ -408,6 +425,16 @@ The cache volumes can be configured to use alternative names to give more contro
 [source,xml,indent=0,subs="verbatim,attributes",tabsize=4]
 ----
 include::../maven/packaging-oci-image/caches-pom.xml[tags=caches]
+----
+
+Builders and buildpacks need a location to store temporary files during image building.
+By default, this temporary build workspace is stored in a named volume.
+
+The caches and the build workspace can be configured to use bind mounts instead of named volumes, as shown in the following example:
+
+[source,xml,indent=0,subs="verbatim,attributes",tabsize=4]
+----
+include::../maven/packaging-oci-image/bind-caches-pom.xml[tags=caches]
 ----
 
 [[build-image.examples.docker]]

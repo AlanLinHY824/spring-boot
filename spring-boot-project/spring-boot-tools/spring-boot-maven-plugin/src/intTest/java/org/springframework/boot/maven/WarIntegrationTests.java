@@ -57,10 +57,10 @@ class WarIntegrationTests extends AbstractArchiveIntegrationTests {
 				.hasEntryWithNameStartingWith("WEB-INF/lib/spring-core")
 				.hasEntryWithNameStartingWith("WEB-INF/lib/spring-jcl")
 				.hasEntryWithNameStartingWith("WEB-INF/lib-provided/jakarta.servlet-api-6")
-				.hasEntryWithName("org/springframework/boot/loader/WarLauncher.class")
+				.hasEntryWithName("org/springframework/boot/loader/launch/WarLauncher.class")
 				.hasEntryWithName("WEB-INF/classes/org/test/SampleApplication.class")
 				.hasEntryWithName("index.html")
-				.manifest((manifest) -> manifest.hasMainClass("org.springframework.boot.loader.WarLauncher")
+				.manifest((manifest) -> manifest.hasMainClass("org.springframework.boot.loader.launch.WarLauncher")
 					.hasStartClass("org.test.SampleApplication")
 					.hasAttribute("Not-Used", "Foo")));
 	}
@@ -122,8 +122,9 @@ class WarIntegrationTests extends AbstractArchiveIntegrationTests {
 			List<String> sortedLibs = Arrays.asList(
 					// these libraries are copied from the original war, sorted when
 					// packaged by Maven
-					"WEB-INF/lib/spring-aop", "WEB-INF/lib/spring-beans", "WEB-INF/lib/spring-context",
-					"WEB-INF/lib/spring-core", "WEB-INF/lib/spring-expression", "WEB-INF/lib/spring-jcl",
+					"WEB-INF/lib/micrometer-commons", "WEB-INF/lib/micrometer-observation", "WEB-INF/lib/spring-aop",
+					"WEB-INF/lib/spring-beans", "WEB-INF/lib/spring-context", "WEB-INF/lib/spring-core",
+					"WEB-INF/lib/spring-expression", "WEB-INF/lib/spring-jcl",
 					// these libraries are contributed by Spring Boot repackaging, and
 					// sorted separately
 					"WEB-INF/lib/spring-boot-jarmode-layertools");

@@ -16,6 +16,7 @@
 
 package org.springframework.boot.testcontainers.service.connection.cassandra;
 
+import java.net.InetSocketAddress;
 import java.util.List;
 
 import org.testcontainers.containers.CassandraContainer;
@@ -35,47 +36,43 @@ import org.springframework.boot.testcontainers.service.connection.ServiceConnect
  * @author Phillip Webb
  */
 class CassandraContainerConnectionDetailsFactory
-		extends ContainerConnectionDetailsFactory<CassandraConnectionDetails, CassandraContainer<?>> {
+		extends ContainerConnectionDetailsFactory<CassandraContainer<?>, CassandraConnectionDetails> {
 
 	@Override
 	protected CassandraConnectionDetails getContainerConnectionDetails(
-			ContainerConnectionSource<CassandraConnectionDetails, CassandraContainer<?>> source) {
+			ContainerConnectionSource<CassandraContainer<?>> source) {
 		return new CassandraContainerConnectionDetails(source);
 	}
 
 	/**
 	 * {@link CassandraConnectionDetails} backed by a {@link ContainerConnectionSource}.
 	 */
-	private static final class CassandraContainerConnectionDetails extends ContainerConnectionDetails
-			implements CassandraConnectionDetails {
+	private static final class CassandraContainerConnectionDetails
+			extends ContainerConnectionDetails<CassandraContainer<?>> implements CassandraConnectionDetails {
 
-		private final CassandraContainer<?> container;
-
-		private CassandraContainerConnectionDetails(
-				ContainerConnectionSource<CassandraConnectionDetails, CassandraContainer<?>> source) {
+		private CassandraContainerConnectionDetails(ContainerConnectionSource<CassandraContainer<?>> source) {
 			super(source);
-			this.container = source.getContainer();
 		}
 
 		@Override
 		public List<Node> getContactPoints() {
-			return List.of(new Node(this.container.getContactPoint().getHostString(),
-					this.container.getContactPoint().getPort()));
+			InetSocketAddress contactPoint = getContainer().getContactPoint();
+			return List.of(new Node(contactPoint.getHostString(), contactPoint.getPort()));
 		}
 
 		@Override
 		public String getUsername() {
-			return this.container.getUsername();
+			return getContainer().getUsername();
 		}
 
 		@Override
 		public String getPassword() {
-			return this.container.getPassword();
+			return getContainer().getPassword();
 		}
 
 		@Override
 		public String getLocalDatacenter() {
-			return this.container.getLocalDatacenter();
+			return getContainer().getLocalDatacenter();
 		}
 
 	}

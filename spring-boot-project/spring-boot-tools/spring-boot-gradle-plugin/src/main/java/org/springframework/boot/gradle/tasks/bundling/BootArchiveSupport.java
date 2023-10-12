@@ -42,11 +42,14 @@ import org.gradle.api.tasks.WorkResult;
 import org.gradle.api.tasks.bundling.Jar;
 import org.gradle.api.tasks.util.PatternSet;
 
+import org.springframework.boot.loader.tools.LoaderImplementation;
+
 /**
  * Support class for implementations of {@link BootArchive}.
  *
  * @author Andy Wilkinson
  * @author Phillip Webb
+ * @author Scott Frederick
  * @see BootJar
  * @see BootWar
  */
@@ -60,9 +63,9 @@ class BootArchiveSupport {
 
 	static {
 		Set<String> defaultLauncherClasses = new HashSet<>();
-		defaultLauncherClasses.add("org.springframework.boot.loader.JarLauncher");
-		defaultLauncherClasses.add("org.springframework.boot.loader.PropertiesLauncher");
-		defaultLauncherClasses.add("org.springframework.boot.loader.WarLauncher");
+		defaultLauncherClasses.add("org.springframework.boot.loader.launch.JarLauncher");
+		defaultLauncherClasses.add("org.springframework.boot.loader.launch.PropertiesLauncher");
+		defaultLauncherClasses.add("org.springframework.boot.loader.launch.WarLauncher");
 		DEFAULT_LAUNCHER_CLASSES = Collections.unmodifiableSet(defaultLauncherClasses);
 	}
 
@@ -115,15 +118,18 @@ class BootArchiveSupport {
 		return (version != null) ? version : "unknown";
 	}
 
-	CopyAction createCopyAction(Jar jar, ResolvedDependencies resolvedDependencies) {
-		return createCopyAction(jar, resolvedDependencies, null, null);
+	CopyAction createCopyAction(Jar jar, ResolvedDependencies resolvedDependencies,
+			LoaderImplementation loaderImplementation) {
+		return createCopyAction(jar, resolvedDependencies, loaderImplementation, null, null);
 	}
 
-	CopyAction createCopyAction(Jar jar, ResolvedDependencies resolvedDependencies, LayerResolver layerResolver,
-			String layerToolsLocation) {
+	CopyAction createCopyAction(Jar jar, ResolvedDependencies resolvedDependencies,
+			LoaderImplementation loaderImplementation, LayerResolver layerResolver, String layerToolsLocation) {
 		File output = jar.getArchiveFile().get().getAsFile();
 		Manifest manifest = jar.getManifest();
 		boolean preserveFileTimestamps = jar.isPreserveFileTimestamps();
+		Integer dirMode = jar.getDirMode();
+		Integer fileMode = jar.getFileMode();
 		boolean includeDefaultLoader = isUsingDefaultLoader(jar);
 		Spec<FileTreeElement> requiresUnpack = this.requiresUnpack.getAsSpec();
 		Spec<FileTreeElement> exclusions = this.exclusions.getAsExcludeSpec();
@@ -131,9 +137,9 @@ class BootArchiveSupport {
 		Spec<FileCopyDetails> librarySpec = this.librarySpec;
 		Function<FileCopyDetails, ZipCompression> compressionResolver = this.compressionResolver;
 		String encoding = jar.getMetadataCharset();
-		CopyAction action = new BootZipCopyAction(output, manifest, preserveFileTimestamps, includeDefaultLoader,
-				layerToolsLocation, requiresUnpack, exclusions, launchScript, librarySpec, compressionResolver,
-				encoding, resolvedDependencies, layerResolver);
+		CopyAction action = new BootZipCopyAction(output, manifest, preserveFileTimestamps, dirMode, fileMode,
+				includeDefaultLoader, layerToolsLocation, requiresUnpack, exclusions, launchScript, librarySpec,
+				compressionResolver, encoding, resolvedDependencies, layerResolver, loaderImplementation);
 		return jar.isReproducibleFileOrder() ? new ReproducibleOrderingCopyAction(action) : action;
 	}
 

@@ -57,6 +57,7 @@ import static org.mockito.Mockito.mock;
  * @author Stephane Nicoll
  * @author Aurélien Leboulanger
  * @author Eddú Meléndez
+ * @author Vedran Pavic
  */
 class JmsAutoConfigurationTests {
 
@@ -142,9 +143,10 @@ class JmsAutoConfigurationTests {
 	@Test
 	void testJmsListenerContainerFactoryWithCustomSettings() {
 		this.contextRunner.withUserConfiguration(EnableJmsConfiguration.class)
-			.withPropertyValues("spring.jms.listener.autoStartup=false", "spring.jms.listener.acknowledgeMode=client",
-					"spring.jms.listener.concurrency=2", "spring.jms.listener.receiveTimeout=2s",
-					"spring.jms.listener.maxConcurrency=10")
+			.withPropertyValues("spring.jms.listener.autoStartup=false",
+					"spring.jms.listener.session.acknowledgeMode=client",
+					"spring.jms.listener.session.transacted=false", "spring.jms.listener.minConcurrency=2",
+					"spring.jms.listener.receiveTimeout=2s", "spring.jms.listener.maxConcurrency=10")
 			.run(this::testJmsListenerContainerFactoryWithCustomSettings);
 	}
 
@@ -152,6 +154,7 @@ class JmsAutoConfigurationTests {
 		DefaultMessageListenerContainer container = getContainer(loaded, "jmsListenerContainerFactory");
 		assertThat(container.isAutoStartup()).isFalse();
 		assertThat(container.getSessionAcknowledgeMode()).isEqualTo(Session.CLIENT_ACKNOWLEDGE);
+		assertThat(container.isSessionTransacted()).isFalse();
 		assertThat(container.getConcurrentConsumers()).isEqualTo(2);
 		assertThat(container.getMaxConcurrentConsumers()).isEqualTo(10);
 		assertThat(container).hasFieldOrPropertyWithValue("receiveTimeout", 2000L);
@@ -180,6 +183,18 @@ class JmsAutoConfigurationTests {
 	}
 
 	@Test
+	void testDefaultContainerFactoryWithJtaTransactionManagerAndSessionTransactedEnabled() {
+		this.contextRunner.withUserConfiguration(TestConfiguration7.class, EnableJmsConfiguration.class)
+			.withPropertyValues("spring.jms.listener.session.transacted=true")
+			.run((context) -> {
+				DefaultMessageListenerContainer container = getContainer(context, "jmsListenerContainerFactory");
+				assertThat(container.isSessionTransacted()).isTrue();
+				assertThat(container).hasFieldOrPropertyWithValue("transactionManager",
+						context.getBean(JtaTransactionManager.class));
+			});
+	}
+
+	@Test
 	void testDefaultContainerFactoryNonJtaTransactionManager() {
 		this.contextRunner.withUserConfiguration(TestConfiguration8.class, EnableJmsConfiguration.class)
 			.run((context) -> {
@@ -196,6 +211,17 @@ class JmsAutoConfigurationTests {
 			assertThat(container.isSessionTransacted()).isTrue();
 			assertThat(container).hasFieldOrPropertyWithValue("transactionManager", null);
 		});
+	}
+
+	@Test
+	void testDefaultContainerFactoryNoTransactionManagerAndSessionTransactedDisabled() {
+		this.contextRunner.withUserConfiguration(EnableJmsConfiguration.class)
+			.withPropertyValues("spring.jms.listener.session.transacted=false")
+			.run((context) -> {
+				DefaultMessageListenerContainer container = getContainer(context, "jmsListenerContainerFactory");
+				assertThat(container.isSessionTransacted()).isFalse();
+				assertThat(container).hasFieldOrPropertyWithValue("transactionManager", null);
+			});
 	}
 
 	@Test
@@ -253,7 +279,8 @@ class JmsAutoConfigurationTests {
 	@Test
 	void testJmsTemplateFullCustomization() {
 		this.contextRunner.withUserConfiguration(MessageConvertersConfiguration.class)
-			.withPropertyValues("spring.jms.template.default-destination=testQueue",
+			.withPropertyValues("spring.jms.template.session.acknowledge-mode=client",
+					"spring.jms.template.session.transacted=true", "spring.jms.template.default-destination=testQueue",
 					"spring.jms.template.delivery-delay=500", "spring.jms.template.delivery-mode=non-persistent",
 					"spring.jms.template.priority=6", "spring.jms.template.time-to-live=6000",
 					"spring.jms.template.receive-timeout=2000")
@@ -261,6 +288,8 @@ class JmsAutoConfigurationTests {
 				JmsTemplate jmsTemplate = context.getBean(JmsTemplate.class);
 				assertThat(jmsTemplate.getMessageConverter()).isSameAs(context.getBean("myMessageConverter"));
 				assertThat(jmsTemplate.isPubSubDomain()).isFalse();
+				assertThat(jmsTemplate.getSessionAcknowledgeMode()).isEqualTo(Session.CLIENT_ACKNOWLEDGE);
+				assertThat(jmsTemplate.isSessionTransacted()).isTrue();
 				assertThat(jmsTemplate.getDefaultDestinationName()).isEqualTo("testQueue");
 				assertThat(jmsTemplate.getDeliveryDelay()).isEqualTo(500);
 				assertThat(jmsTemplate.getDeliveryMode()).isOne();

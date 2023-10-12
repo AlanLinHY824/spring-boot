@@ -47,6 +47,7 @@ import org.springframework.boot.loader.tools.Layouts.Jar;
 import org.springframework.boot.loader.tools.Layouts.None;
 import org.springframework.boot.loader.tools.Layouts.War;
 import org.springframework.boot.loader.tools.Libraries;
+import org.springframework.boot.loader.tools.LoaderImplementation;
 import org.springframework.boot.loader.tools.Packager;
 import org.springframework.boot.loader.tools.layer.CustomLayers;
 
@@ -129,6 +130,15 @@ public abstract class AbstractPackagerMojo extends AbstractDependencyFilterMojo 
 	}
 
 	/**
+	 * Return the loader implementation that should be used.
+	 * @return the loader implementation or {@code null}
+	 * @since 3.2.0
+	 */
+	protected LoaderImplementation getLoaderImplementation() {
+		return null;
+	}
+
+	/**
 	 * Return the layout factory that will be used to determine the {@link LayoutType} if
 	 * no explicit layout is set.
 	 * @return {@code null}, indicating a default layout factory will be chosen
@@ -145,6 +155,7 @@ public abstract class AbstractPackagerMojo extends AbstractDependencyFilterMojo 
 	 */
 	protected <P extends Packager> P getConfiguredPackager(Supplier<P> supplier) {
 		P packager = supplier.get();
+		packager.setLoaderImplementation(getLoaderImplementation());
 		packager.setLayoutFactory(getLayoutFactory());
 		packager.addMainClassTimeoutWarningListener(new LoggingMainClassTimeoutWarningListener(this::getLog));
 		packager.setMainClass(this.mainClass);
@@ -198,18 +209,10 @@ public abstract class AbstractPackagerMojo extends AbstractDependencyFilterMojo 
 	private ArtifactsFilter[] getAdditionalFilters() {
 		List<ArtifactsFilter> filters = new ArrayList<>();
 		if (this.excludeDevtools) {
-			Exclude exclude = new Exclude();
-			exclude.setGroupId("org.springframework.boot");
-			exclude.setArtifactId("spring-boot-devtools");
-			ExcludeFilter filter = new ExcludeFilter(exclude);
-			filters.add(filter);
+			filters.add(DEVTOOLS_EXCLUDE_FILTER);
 		}
 		if (this.excludeDockerCompose) {
-			Exclude exclude = new Exclude();
-			exclude.setGroupId("org.springframework.boot");
-			exclude.setArtifactId("spring-boot-docker-compose");
-			ExcludeFilter filter = new ExcludeFilter(exclude);
-			filters.add(filter);
+			filters.add(DOCKER_COMPOSE_EXCLUDE_FILTER);
 		}
 		if (!this.includeSystemScope) {
 			filters.add(new ScopeFilter(null, Artifact.SCOPE_SYSTEM));

@@ -25,7 +25,7 @@ import java.lang.annotation.Target;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
- * Repeatable container for {@link DisabledIfProcessUnavailables}.
+ * Repeatable container for {@link DisabledIfProcessUnavailable}.
  *
  * @author Phillip Webb
  */

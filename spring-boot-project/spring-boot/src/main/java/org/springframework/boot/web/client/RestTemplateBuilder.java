@@ -30,9 +30,8 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-import reactor.netty.http.client.HttpClientRequest;
-
 import org.springframework.beans.BeanUtils;
+import org.springframework.boot.ssl.SslBundle;
 import org.springframework.http.client.ClientHttpRequest;
 import org.springframework.http.client.ClientHttpRequestFactory;
 import org.springframework.http.client.ClientHttpRequestInterceptor;
@@ -64,6 +63,7 @@ import org.springframework.web.util.UriTemplateHandler;
  * @author Dmytro Nosan
  * @author Kevin Strijbos
  * @author Ilya Lukyanovich
+ * @author Scott Frederick
  * @since 1.4.0
  */
 public class RestTemplateBuilder {
@@ -323,8 +323,9 @@ public class RestTemplateBuilder {
 	}
 
 	/**
-	 * Set the {@link ClientHttpRequestFactorySupplier} that should be called each time we
-	 * {@link #build()} a new {@link RestTemplate} instance.
+	 * Set the request factory function that should be called to provide a
+	 * {@link ClientHttpRequestFactory} each time we {@link #build()} a new
+	 * {@link RestTemplate} instance.
 	 * @param requestFactoryFunction the settings to request factory function
 	 * @return a new builder instance
 	 * @since 3.0.0
@@ -396,7 +397,7 @@ public class RestTemplateBuilder {
 
 	/**
 	 * Add a default header that will be set if not already present on the outgoing
-	 * {@link HttpClientRequest}.
+	 * {@link ClientHttpRequest}.
 	 * @param name the name of the header
 	 * @param values the header values
 	 * @return a new builder instance
@@ -438,19 +439,31 @@ public class RestTemplateBuilder {
 	}
 
 	/**
-	 * Sets if the underlying {@link ClientHttpRequestFactory} should buffer the
-	 * {@linkplain ClientHttpRequest#getBody() request body} internally.
+	 * Has no effect as support for buffering has been removed in Spring Framework 6.1.
 	 * @param bufferRequestBody value of the bufferRequestBody parameter
 	 * @return a new builder instance.
 	 * @since 2.2.0
+	 * @deprecated since 3.2.0 for removal in 3.4.0 as support for buffering has been
+	 * removed in Spring Framework 6.1
 	 * @see SimpleClientHttpRequestFactory#setBufferRequestBody(boolean)
 	 * @see HttpComponentsClientHttpRequestFactory#setBufferRequestBody(boolean)
 	 */
+	@Deprecated(since = "3.2.0", forRemoval = true)
 	public RestTemplateBuilder setBufferRequestBody(boolean bufferRequestBody) {
-		return new RestTemplateBuilder(this.requestFactorySettings.withBufferRequestBody(bufferRequestBody),
-				this.detectRequestFactory, this.rootUri, this.messageConverters, this.interceptors, this.requestFactory,
-				this.uriTemplateHandler, this.errorHandler, this.basicAuthentication, this.defaultHeaders,
-				this.customizers, this.requestCustomizers);
+		return this;
+	}
+
+	/**
+	 * Sets the SSL bundle on the underlying {@link ClientHttpRequestFactory}.
+	 * @param sslBundle the SSL bundle
+	 * @return a new builder instance
+	 * @since 3.1.0
+	 */
+	public RestTemplateBuilder setSslBundle(SslBundle sslBundle) {
+		return new RestTemplateBuilder(this.requestFactorySettings.withSslBundle(sslBundle), this.detectRequestFactory,
+				this.rootUri, this.messageConverters, this.interceptors, this.requestFactory, this.uriTemplateHandler,
+				this.errorHandler, this.basicAuthentication, this.defaultHeaders, this.customizers,
+				this.requestCustomizers);
 	}
 
 	/**

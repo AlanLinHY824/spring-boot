@@ -61,7 +61,7 @@ import org.springframework.util.FileCopyUtils;
 import org.springframework.util.FileSystemUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.fail;
+import static org.assertj.core.api.Assertions.fail;
 
 /**
  * A {@code GradleBuild} is used to run a Gradle build using {@link GradleRunner}.
@@ -189,6 +189,10 @@ public class GradleBuild {
 		return this;
 	}
 
+	public boolean gradleVersionIsAtLeast(String version) {
+		return GradleVersion.version(this.gradleVersion).compareTo(GradleVersion.version(version)) >= 0;
+	}
+
 	public BuildResult build(String... arguments) {
 		try {
 			BuildResult result = prepareRunner(arguments).build();
@@ -232,8 +236,8 @@ public class GradleBuild {
 		GradleRunner gradleRunner = GradleRunner.create()
 			.withProjectDir(this.projectDir)
 			.withPluginClasspath(pluginClasspath());
-		if (this.dsl != Dsl.KOTLIN && !this.configurationCache) {
-			// see https://github.com/gradle/gradle/issues/6862
+		if (!this.configurationCache) {
+			// See https://github.com/gradle/gradle/issues/14125
 			gradleRunner.withDebug(true);
 		}
 		if (this.gradleVersion != null) {

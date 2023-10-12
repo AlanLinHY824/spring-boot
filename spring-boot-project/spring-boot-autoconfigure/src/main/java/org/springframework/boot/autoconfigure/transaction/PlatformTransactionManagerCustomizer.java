@@ -26,14 +26,12 @@ import org.springframework.transaction.PlatformTransactionManager;
  * @param <T> the transaction manager type
  * @author Phillip Webb
  * @since 1.5.0
+ * @deprecated since 3.2.0 for removal in 3.4.0 in favor of
+ * {@link TransactionManagerCustomizer}.
  */
+@Deprecated(since = "3.2.0", forRemoval = true)
 @FunctionalInterface
-public interface PlatformTransactionManagerCustomizer<T extends PlatformTransactionManager> {
-
-	/**
-	 * Customize the given transaction manager.
-	 * @param transactionManager the transaction manager to customize
-	 */
-	void customize(T transactionManager);
+public interface PlatformTransactionManagerCustomizer<T extends PlatformTransactionManager>
+		extends TransactionManagerCustomizer<T> {
 
 }

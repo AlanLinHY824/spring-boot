@@ -23,6 +23,7 @@ import org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfi
 import org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration;
 import org.springframework.boot.test.context.FilteredClassLoader;
 import org.springframework.boot.test.context.runner.WebApplicationContextRunner;
+import org.springframework.boot.testsupport.classpath.ClassPathExclusions;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
@@ -59,8 +60,11 @@ class OAuth2AuthorizationServerAutoConfigurationTests {
 	}
 
 	@Test
+	@ClassPathExclusions({ "spring-security-oauth2-client-*.jar", "spring-security-oauth2-resource-server-*.jar",
+			"spring-security-saml2-service-provider-*.jar" })
 	void autoConfigurationDoesNotCauseUserDetailsServiceToBackOff() {
-		this.contextRunner.run((context) -> assertThat(context).hasBean("inMemoryUserDetailsManager"));
+		this.contextRunner.run((context) -> assertThat(context).hasSingleBean(UserDetailsServiceAutoConfiguration.class)
+			.hasBean("inMemoryUserDetailsManager"));
 	}
 
 	@Test
@@ -124,6 +128,8 @@ class OAuth2AuthorizationServerAutoConfigurationTests {
 		this.contextRunner
 			.withPropertyValues(PROPERTIES_PREFIX + ".issuer=https://example.com",
 					PROPERTIES_PREFIX + ".endpoint.authorization-uri=/authorize",
+					PROPERTIES_PREFIX + ".endpoint.device-authorization-uri=/device_authorization",
+					PROPERTIES_PREFIX + ".endpoint.device-verification-uri=/device_verification",
 					PROPERTIES_PREFIX + ".endpoint.token-uri=/token", PROPERTIES_PREFIX + ".endpoint.jwk-set-uri=/jwks",
 					PROPERTIES_PREFIX + ".endpoint.token-revocation-uri=/revoke",
 					PROPERTIES_PREFIX + ".endpoint.token-introspection-uri=/introspect",
@@ -134,6 +140,8 @@ class OAuth2AuthorizationServerAutoConfigurationTests {
 				AuthorizationServerSettings settings = context.getBean(AuthorizationServerSettings.class);
 				assertThat(settings.getIssuer()).isEqualTo("https://example.com");
 				assertThat(settings.getAuthorizationEndpoint()).isEqualTo("/authorize");
+				assertThat(settings.getDeviceAuthorizationEndpoint()).isEqualTo("/device_authorization");
+				assertThat(settings.getDeviceVerificationEndpoint()).isEqualTo("/device_verification");
 				assertThat(settings.getTokenEndpoint()).isEqualTo("/token");
 				assertThat(settings.getJwkSetEndpoint()).isEqualTo("/jwks");
 				assertThat(settings.getTokenRevocationEndpoint()).isEqualTo("/revoke");

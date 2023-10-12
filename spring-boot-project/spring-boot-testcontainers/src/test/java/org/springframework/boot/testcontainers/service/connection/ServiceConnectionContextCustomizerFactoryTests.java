@@ -24,8 +24,13 @@ import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 
+import org.springframework.context.support.GenericApplicationContext;
+import org.springframework.test.context.ContextCustomizer;
+import org.springframework.test.context.MergedContextConfiguration;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
+import static org.mockito.Mockito.mock;
 
 /**
  * Tests for {@link ServiceConnectionContextCustomizerFactory}.
@@ -39,8 +44,14 @@ class ServiceConnectionContextCustomizerFactoryTests {
 	private final ServiceConnectionContextCustomizerFactory factory = new ServiceConnectionContextCustomizerFactory();
 
 	@Test
-	void createContextCustomizerWhenNoServiceConnectionsReturnsNull() {
-		assertThat(this.factory.createContextCustomizer(NoServiceConnections.class, null)).isNull();
+	void createContextCustomizerWhenNoServiceConnectionsReturnsCustomizerToApplyInitializer() {
+		ContextCustomizer customizer = this.factory.createContextCustomizer(NoServiceConnections.class, null);
+		assertThat(customizer).isNotNull();
+		GenericApplicationContext context = new GenericApplicationContext();
+		int initialNumberOfPostProcessors = context.getBeanFactoryPostProcessors().size();
+		MergedContextConfiguration mergedConfig = mock(MergedContextConfiguration.class);
+		customizer.customizeContext(context, mergedConfig);
+		assertThat(context.getBeanFactoryPostProcessors()).hasSize(initialNumberOfPostProcessors + 1);
 	}
 
 	@Test
@@ -60,7 +71,31 @@ class ServiceConnectionContextCustomizerFactoryTests {
 	}
 
 	@Test
-	void createContextCustomizerWhenClassHasNonStaticServiceConnectionFailsWithHepfulException() {
+	void createContextCustomizerWhenInterfaceHasServiceConnectionsReturnsCustomizer() {
+		ServiceConnectionContextCustomizer customizer = (ServiceConnectionContextCustomizer) this.factory
+			.createContextCustomizer(ServiceConnectionsInterface.class, null);
+		assertThat(customizer).isNotNull();
+		assertThat(customizer.getSources()).hasSize(2);
+	}
+
+	@Test
+	void createContextCustomizerWhenSuperclassHasServiceConnectionsReturnsCustomizer() {
+		ServiceConnectionContextCustomizer customizer = (ServiceConnectionContextCustomizer) this.factory
+			.createContextCustomizer(ServiceConnectionsSubclass.class, null);
+		assertThat(customizer).isNotNull();
+		assertThat(customizer.getSources()).hasSize(2);
+	}
+
+	@Test
+	void createContextCustomizerWhenImplementedInterfaceHasServiceConnectionsReturnsCustomizer() {
+		ServiceConnectionContextCustomizer customizer = (ServiceConnectionContextCustomizer) this.factory
+			.createContextCustomizer(ServiceConnectionsImpl.class, null);
+		assertThat(customizer).isNotNull();
+		assertThat(customizer.getSources()).hasSize(2);
+	}
+
+	@Test
+	void createContextCustomizerWhenClassHasNonStaticServiceConnectionFailsWithHelpfulException() {
 		assertThatIllegalStateException()
 			.isThrownBy(() -> this.factory.createContextCustomizer(NonStaticServiceConnection.class, null))
 			.withMessage("@ServiceConnection field 'service' must be static");
@@ -68,7 +103,7 @@ class ServiceConnectionContextCustomizerFactoryTests {
 	}
 
 	@Test
-	void createContextCustomizerWhenClassHasAnnotationOnNonConnectionFieldFailsWithHepfulException() {
+	void createContextCustomizerWhenClassHasAnnotationOnNonConnectionFieldFailsWithHelpfulException() {
 		assertThatIllegalStateException()
 			.isThrownBy(() -> this.factory.createContextCustomizer(ServiceConnectionOnWrongFieldType.class, null))
 			.withMessage("Field 'service2' in " + ServiceConnectionOnWrongFieldType.class.getName()
@@ -79,15 +114,15 @@ class ServiceConnectionContextCustomizerFactoryTests {
 	void createContextCustomizerCreatesCustomizerSourceWithSensibleBeanNameSuffix() {
 		ServiceConnectionContextCustomizer customizer = (ServiceConnectionContextCustomizer) this.factory
 			.createContextCustomizer(SingleServiceConnection.class, null);
-		ContainerConnectionSource<?, ?> source = customizer.getSources().get(0);
-		assertThat(source.getBeanNameSuffix()).isEqualTo("SingleServiceConnectionService1");
+		ContainerConnectionSource<?> source = customizer.getSources().get(0);
+		assertThat(source.getBeanNameSuffix()).isEqualTo("test");
 	}
 
 	@Test
 	void createContextCustomizerCreatesCustomizerSourceWithSensibleOrigin() {
 		ServiceConnectionContextCustomizer customizer = (ServiceConnectionContextCustomizer) this.factory
 			.createContextCustomizer(SingleServiceConnection.class, null);
-		ContainerConnectionSource<?, ?> source = customizer.getSources().get(0);
+		ContainerConnectionSource<?> source = customizer.getSources().get(0);
 		assertThat(source.getOrigin())
 			.hasToString("ServiceConnectionContextCustomizerFactoryTests.SingleServiceConnection.service1");
 	}
@@ -96,7 +131,7 @@ class ServiceConnectionContextCustomizerFactoryTests {
 	void createContextCustomizerCreatesCustomizerSourceWithSensibleToString() {
 		ServiceConnectionContextCustomizer customizer = (ServiceConnectionContextCustomizer) this.factory
 			.createContextCustomizer(SingleServiceConnection.class, null);
-		ContainerConnectionSource<?, ?> source = customizer.getSources().get(0);
+		ContainerConnectionSource<?> source = customizer.getSources().get(0);
 		assertThat(source).hasToString(
 				"@ServiceConnection source for ServiceConnectionContextCustomizerFactoryTests.SingleServiceConnection.service1");
 	}
@@ -127,6 +162,27 @@ class ServiceConnectionContextCustomizerFactoryTests {
 			private static Container<?> service3 = new MockContainer();
 
 		}
+
+	}
+
+	interface ServiceConnectionsInterface {
+
+		@ServiceConnection
+		Container<?> service1 = new MockContainer();
+
+		@ServiceConnection
+		Container<?> service2 = new MockContainer();
+
+		default void dummy() {
+		}
+
+	}
+
+	static class ServiceConnectionsSubclass extends ServiceConnections {
+
+	}
+
+	static class ServiceConnectionsImpl implements ServiceConnectionsInterface {
 
 	}
 

@@ -26,6 +26,7 @@ import zipkin2.reporter.brave.ZipkinSpanHandler;
 import zipkin2.reporter.urlconnection.URLConnectionSender;
 
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.boot.actuate.autoconfigure.tracing.ConditionalOnEnabledTracing;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -118,7 +119,8 @@ class ZipkinConfigurations {
 				.getIfAvailable(() -> new PropertiesZipkinConnectionDetails(properties));
 			WebClient.Builder builder = WebClient.builder();
 			customizers.orderedStream().forEach((customizer) -> customizer.customize(builder));
-			return new ZipkinWebClientSender(connectionDetails.getSpanEndpoint(), builder.build());
+			return new ZipkinWebClientSender(connectionDetails.getSpanEndpoint(), builder.build(),
+					properties.getConnectTimeout().plus(properties.getReadTimeout()));
 		}
 
 	}
@@ -127,7 +129,7 @@ class ZipkinConfigurations {
 	static class ReporterConfiguration {
 
 		@Bean
-		@ConditionalOnMissingBean
+		@ConditionalOnMissingBean(Reporter.class)
 		@ConditionalOnBean(Sender.class)
 		AsyncReporter<Span> spanReporter(Sender sender, BytesEncoder<Span> encoder) {
 			return AsyncReporter.builder(sender).build(encoder);
@@ -142,6 +144,7 @@ class ZipkinConfigurations {
 		@Bean
 		@ConditionalOnMissingBean
 		@ConditionalOnBean(Reporter.class)
+		@ConditionalOnEnabledTracing
 		ZipkinSpanHandler zipkinSpanHandler(Reporter<Span> spanReporter) {
 			return (ZipkinSpanHandler) ZipkinSpanHandler.newBuilder(spanReporter).build();
 		}
@@ -155,6 +158,7 @@ class ZipkinConfigurations {
 		@Bean
 		@ConditionalOnMissingBean
 		@ConditionalOnBean(Sender.class)
+		@ConditionalOnEnabledTracing
 		ZipkinSpanExporter zipkinSpanExporter(BytesEncoder<Span> encoder, Sender sender) {
 			return ZipkinSpanExporter.builder().setEncoder(encoder).setSender(sender).build();
 		}

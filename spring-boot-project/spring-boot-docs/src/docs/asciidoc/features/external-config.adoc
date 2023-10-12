@@ -24,6 +24,7 @@ Sources are considered in the following order:
 . Command line arguments.
 . `properties` attribute on your tests.
   Available on {spring-boot-test-module-api}/context/SpringBootTest.html[`@SpringBootTest`] and the <<features#features.testing.spring-boot-applications.autoconfigured-tests,test annotations for testing a particular slice of your application>>.
+. {spring-framework-api}/test/context/DynamicPropertySource.html[`@DynamicPropertySource`] annotations in your tests.
 . {spring-framework-api}/test/context/TestPropertySource.html[`@TestPropertySource`] annotations on your tests.
 . <<using#using.devtools.globalsettings,Devtools global settings properties>> in the `$HOME/.config/spring-boot` directory when devtools is active.
 
@@ -35,7 +36,12 @@ Config data files are considered in the following order:
 . <<features#features.external-config.files.profile-specific,Profile-specific application properties>> outside of your packaged jar (`application-\{profile}.properties` and YAML variants).
 
 NOTE: It is recommended to stick with one format for your entire application.
-If you have configuration files with both `.properties` and `.yml` format in the same location, `.properties` takes precedence.
+If you have configuration files with both `.properties` and YAML format in the same location, `.properties` takes precedence.
+
+NOTE: If you use environment variables rather than system properties, most operating systems disallow period-separated key names, but you can use underscores instead (for example, configprop:spring.config.name[format=envvar] instead of configprop:spring.config.name[]).
+See <<features#features.external-config.typesafe-configuration-properties.relaxed-binding.environment-variables>> for details.
+
+NOTE: If your application runs in a servlet container or application server, then JNDI properties (in `java:comp/env`) or servlet context initialization parameters can be used instead of, or as well as, environment variables or system properties.
 
 To provide a concrete example, suppose you develop a `@Component` that uses a `name` property, as shown in the following example:
 
@@ -173,11 +179,6 @@ This search ordering lets you specify default values in one configuration file a
 You can provide default values for your application in `application.properties` (or whatever other basename you choose with `spring.config.name`) in one of the default locations.
 These default values can then be overridden at runtime with a different file located in one of the custom locations.
 
-NOTE: If you use environment variables rather than system properties, most operating systems disallow period-separated key names, but you can use underscores instead (for example, configprop:spring.config.name[format=envvar] instead of configprop:spring.config.name[]).
-See <<features#features.external-config.typesafe-configuration-properties.relaxed-binding.environment-variables>> for details.
-
-NOTE: If your application runs in a servlet container or application server, then JNDI properties (in `java:comp/env`) or servlet context initialization parameters can be used instead of, or as well as, environment variables or system properties.
-
 
 
 [[features.external-config.files.optional-prefix]]
@@ -220,7 +221,7 @@ You cannot use a wildcard in a `classpath:` location.
 [[features.external-config.files.profile-specific]]
 ==== Profile Specific Files
 As well as `application` property files, Spring Boot will also attempt to load profile-specific files using the naming convention `application-\{profile}`.
-For example, if your application activates a profile named `prod` and uses YAML files, then both `application.yml` and `application-prod.yml` will be considered.
+For example, if your application activates a profile named `prod` and uses YAML files, then both `application.yaml` and `application-prod.yaml` will be considered.
 
 Profile-specific properties are loaded from the same locations as standard `application.properties`, with profile-specific files always overriding the non-specific ones.
 If several profiles are specified, a last-wins strategy applies.
@@ -384,7 +385,7 @@ To import these properties, you can add the following to your `application.prope
 
 You can then access or inject `myapp.username` and `myapp.password` properties from the `Environment` in the usual way.
 
-TIP: The folders under the config tree form the property name.
+TIP: The names of the folders and files under the config tree form the property name.
 In the above example, to access the properties as `username` and `password`, you can set `spring.config.import` to `optional:configtree:/etc/config/myapp`.
 
 NOTE: Filenames with dot notation are also correctly mapped.
@@ -394,6 +395,7 @@ TIP: Configuration tree values can be bound to both string `String` and `byte[]`
 
 If you have multiple config trees to import from the same parent folder you can use a wildcard shortcut.
 Any `configtree:` location that ends with `/*/` will import all immediate children as config trees.
+As with a non-wildcard import, the names of the folders and files under each config tree form the property name.
 
 For example, given the following volume:
 
@@ -441,7 +443,7 @@ For example, if a secret named `db.password` is mounted at location `/run/secret
 
 [[features.external-config.files.property-placeholders]]
 ==== Property Placeholders
-The values in `application.properties` and `application.yml` are filtered through the existing `Environment` when they are used, so you can refer back to previously defined values (for example, from System properties or environment variables).
+The values in `application.properties` and `application.yaml` are filtered through the existing `Environment` when they are used, so you can refer back to previously defined values (for example, from System properties or environment variables).
 The standard `$\{name}` property-placeholder syntax can be used anywhere within a value.
 Property placeholders can also specify a default value using a `:` to separate the default value from the property name, for example `${name:default}`.
 
@@ -476,7 +478,7 @@ Spring Boot allows you to split a single physical file into multiple logical doc
 Documents are processed in order, from top to bottom.
 Later documents can override the properties defined in earlier ones.
 
-For `application.yml` files, the standard YAML multi-document syntax is used.
+For `application.yaml` files, the standard YAML multi-document syntax is used.
 Three consecutive hyphens represent the end of one document, and the start of the next.
 
 For example, the following file has two logical documents:
@@ -837,13 +839,13 @@ With the preceding code, the following properties names can all be used:
 | Property | Note
 
 | `my.main-project.person.first-name`
-| Kebab case, which is recommended for use in `.properties` and `.yml` files.
+| Kebab case, which is recommended for use in `.properties` and YAML files.
 
 | `my.main-project.person.firstName`
 | Standard camel case syntax.
 
 | `my.main-project.person.first_name`
-| Underscore notation, which is an alternative format for use in `.properties` and `.yml` files.
+| Underscore notation, which is an alternative format for use in `.properties` and YAML files.
 
 | `MY_MAINPROJECT_PERSON_FIRSTNAME`
 | Upper case format, which is recommended when using system environment variables.
@@ -1047,7 +1049,7 @@ Spring Boot has dedicated support for expressing durations.
 If you expose a `java.time.Duration` property, the following formats in application properties are available:
 
 * A regular `long` representation (using milliseconds as the default unit unless a `@DurationUnit` has been specified)
-* The standard ISO-8601 format {java-api}/java/time/Duration.html#parse-java.lang.CharSequence-[used by `java.time.Duration`]
+* The standard ISO-8601 format {java-api}/java.base/java/time/Duration.html#parse(java.lang.CharSequence)[used by `java.time.Duration`]
 * A more readable format where the value and the unit are coupled (`10s` means 10 seconds)
 
 Consider the following example:
@@ -1086,7 +1088,7 @@ In addition to durations, Spring Boot can also work with `java.time.Period` type
 The following formats can be used in application properties:
 
 * An regular `int` representation (using days as the default unit unless a `@PeriodUnit` has been specified)
-* The standard ISO-8601 format {java-api}/java/time/Period.html#parse-java.lang.CharSequence-[used by `java.time.Period`]
+* The standard ISO-8601 format {java-api}/java.base/java/time/Period.html#parse(java.lang.CharSequence)[used by `java.time.Period`]
 * A simpler format where the value and the unit pairs are coupled (`1y3d` means 1 year and 3 days)
 
 The following units are supported with the simple format:

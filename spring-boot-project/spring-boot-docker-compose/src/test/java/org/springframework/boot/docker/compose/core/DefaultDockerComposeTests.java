@@ -97,26 +97,6 @@ class DefaultDockerComposeTests {
 	}
 
 	@Test
-	void hasRunningServicesWhenPsListsRunningServiceReturnsTrue() {
-		willReturn(List.of(new DockerCliComposePsResponse("id", "name", "image", "exited"),
-				new DockerCliComposePsResponse("id", "name", "image", "running")))
-			.given(this.cli)
-			.run(new DockerCliCommand.ComposePs());
-		DefaultDockerCompose compose = new DefaultDockerCompose(this.cli, HOST);
-		assertThat(compose.hasRunningServices()).isTrue();
-	}
-
-	@Test
-	void hasRunningServicesWhenPsListReturnsAllExitedReturnsFalse() {
-		willReturn(List.of(new DockerCliComposePsResponse("id", "name", "image", "exited"),
-				new DockerCliComposePsResponse("id", "name", "image", "running")))
-			.given(this.cli)
-			.run(new DockerCliCommand.ComposePs());
-		DefaultDockerCompose compose = new DefaultDockerCompose(this.cli, HOST);
-		assertThat(compose.hasRunningServices()).isTrue();
-	}
-
-	@Test
 	void getRunningServicesReturnsServices() {
 		String id = "123";
 		DockerCliComposePsResponse psResponse = new DockerCliComposePsResponse(id, "name", "redis", "running");
@@ -133,7 +113,7 @@ class DefaultDockerComposeTests {
 		assertThat(runningServices).hasSize(1);
 		RunningService runningService = runningServices.get(0);
 		assertThat(runningService.name()).isEqualTo("name");
-		assertThat(runningService.image()).hasToString("redis");
+		assertThat(runningService.image()).hasToString("docker.io/library/redis");
 		assertThat(runningService.host()).isEqualTo(HOST);
 		assertThat(runningService.ports().getAll()).isEmpty();
 		assertThat(runningService.env()).containsExactly(entry("a", "b"));

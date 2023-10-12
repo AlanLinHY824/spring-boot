@@ -16,6 +16,7 @@
 
 package org.springframework.boot.autoconfigure.batch;
 
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 
@@ -24,6 +25,8 @@ import javax.sql.DataSource;
 import jakarta.persistence.EntityManagerFactory;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InOrder;
+import org.mockito.Mockito;
 
 import org.springframework.batch.core.BatchStatus;
 import org.springframework.batch.core.Job;
@@ -36,7 +39,6 @@ import org.springframework.batch.core.configuration.JobFactory;
 import org.springframework.batch.core.configuration.JobRegistry;
 import org.springframework.batch.core.configuration.annotation.EnableBatchProcessing;
 import org.springframework.batch.core.configuration.support.DefaultBatchConfiguration;
-import org.springframework.batch.core.configuration.support.JobRegistryBeanPostProcessor;
 import org.springframework.batch.core.explore.JobExplorer;
 import org.springframework.batch.core.job.AbstractJob;
 import org.springframework.batch.core.launch.JobLauncher;
@@ -59,6 +61,7 @@ import org.springframework.boot.autoconfigure.logging.ConditionEvaluationReportL
 import org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration;
 import org.springframework.boot.autoconfigure.orm.jpa.test.City;
 import org.springframework.boot.autoconfigure.transaction.TransactionAutoConfiguration;
+import org.springframework.boot.autoconfigure.transaction.TransactionManagerCustomizationAutoConfiguration;
 import org.springframework.boot.jdbc.DataSourceBuilder;
 import org.springframework.boot.jdbc.init.DataSourceScriptDatabaseInitializer;
 import org.springframework.boot.logging.LogLevel;
@@ -71,6 +74,8 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
+import org.springframework.core.annotation.Order;
+import org.springframework.core.convert.support.ConfigurableConversionService;
 import org.springframework.jdbc.BadSqlGrammarException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
@@ -80,6 +85,8 @@ import org.springframework.transaction.PlatformTransactionManager;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
+import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
+import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
 
 /**
@@ -89,13 +96,14 @@ import static org.mockito.Mockito.mock;
  * @author Stephane Nicoll
  * @author Vedran Pavic
  * @author Kazuki Shimizu
+ * @author Mahmoud Ben Hassine
  */
 @ExtendWith(OutputCaptureExtension.class)
 class BatchAutoConfigurationTests {
 
-	private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
-		.withConfiguration(AutoConfigurations.of(BatchAutoConfiguration.class, TransactionAutoConfiguration.class,
-				DataSourceTransactionManagerAutoConfiguration.class));
+	private final ApplicationContextRunner contextRunner = new ApplicationContextRunner().withConfiguration(
+			AutoConfigurations.of(BatchAutoConfiguration.class, TransactionManagerCustomizationAutoConfiguration.class,
+					TransactionAutoConfiguration.class, DataSourceTransactionManagerAutoConfiguration.class));
 
 	@Test
 	void testDefaultContext() {
@@ -400,6 +408,71 @@ class BatchAutoConfigurationTests {
 				.hasBean("customInitializer"));
 	}
 
+	@Test
+	void conversionServiceCustomizersAreCalled() {
+		this.contextRunner.withUserConfiguration(TestConfiguration.class, EmbeddedDataSourceConfiguration.class)
+			.withUserConfiguration(ConversionServiceCustomizersConfiguration.class)
+			.run((context) -> {
+				BatchConversionServiceCustomizer customizer = context.getBean("batchConversionServiceCustomizer",
+						BatchConversionServiceCustomizer.class);
+				BatchConversionServiceCustomizer anotherCustomizer = context
+					.getBean("anotherBatchConversionServiceCustomizer", BatchConversionServiceCustomizer.class);
+				InOrder inOrder = Mockito.inOrder(customizer, anotherCustomizer);
+				ConfigurableConversionService configurableConversionService = context
+					.getBean(SpringBootBatchConfiguration.class)
+					.getConversionService();
+				inOrder.verify(customizer).customize(configurableConversionService);
+				inOrder.verify(anotherCustomizer).customize(configurableConversionService);
+			});
+	}
+
+	@Test
+	void whenTheUserDefinesAJobNameAsJobInstanceValidates() {
+		JobLauncherApplicationRunner runner = createInstance("another");
+		runner.setJobs(Collections.singletonList(mockJob("test")));
+		runner.setJobName("test");
+		runner.afterPropertiesSet();
+	}
+
+	@Test
+	void whenTheUserDefinesAJobNameAsRegisteredJobValidates() {
+		JobLauncherApplicationRunner runner = createInstance("test");
+		runner.setJobName("test");
+		runner.afterPropertiesSet();
+	}
+
+	@Test
+	void whenTheUserDefinesAJobNameThatDoesNotExistWithJobInstancesFailsFast() {
+		JobLauncherApplicationRunner runner = createInstance();
+		runner.setJobs(Arrays.asList(mockJob("one"), mockJob("two")));
+		runner.setJobName("three");
+		assertThatIllegalArgumentException().isThrownBy(runner::afterPropertiesSet)
+			.withMessage("No job found with name 'three'");
+	}
+
+	@Test
+	void whenTheUserDefinesAJobNameThatDoesNotExistWithRegisteredJobFailsFast() {
+		JobLauncherApplicationRunner runner = createInstance("one", "two");
+		runner.setJobName("three");
+		assertThatIllegalArgumentException().isThrownBy(runner::afterPropertiesSet)
+			.withMessage("No job found with name 'three'");
+	}
+
+	private JobLauncherApplicationRunner createInstance(String... registeredJobNames) {
+		JobLauncherApplicationRunner runner = new JobLauncherApplicationRunner(mock(JobLauncher.class),
+				mock(JobExplorer.class), mock(JobRepository.class));
+		JobRegistry jobRegistry = mock(JobRegistry.class);
+		given(jobRegistry.getJobNames()).willReturn(Arrays.asList(registeredJobNames));
+		runner.setJobRegistry(jobRegistry);
+		return runner;
+	}
+
+	private Job mockJob(String name) {
+		Job job = mock(Job.class);
+		given(job.getName()).willReturn(name);
+		return job;
+	}
+
 	@Configuration(proxyBeanMethods = false)
 	protected static class BatchDataSourceConfiguration {
 
@@ -442,13 +515,6 @@ class BatchAutoConfigurationTests {
 
 		@Autowired
 		private JobRepository jobRepository;
-
-		@Bean
-		static JobRegistryBeanPostProcessor registryProcessor(JobRegistry jobRegistry) {
-			JobRegistryBeanPostProcessor processor = new JobRegistryBeanPostProcessor();
-			processor.setJobRegistry(jobRegistry);
-			return processor;
-		}
 
 		@Bean
 		Job discreteJob() {
@@ -613,7 +679,17 @@ class BatchAutoConfigurationTests {
 
 		@Bean
 		Job job2() {
-			return mock(Job.class);
+			return new Job() {
+				@Override
+				public String getName() {
+					return "discreteLocalJob2";
+				}
+
+				@Override
+				public void execute(JobExecution execution) {
+					execution.setStatus(BatchStatus.COMPLETED);
+				}
+			};
 		}
 
 	}
@@ -677,6 +753,23 @@ class BatchAutoConfigurationTests {
 	@EnableBatchProcessing
 	@Configuration(proxyBeanMethods = false)
 	static class EnableBatchProcessingConfiguration {
+
+	}
+
+	@Configuration(proxyBeanMethods = false)
+	static class ConversionServiceCustomizersConfiguration {
+
+		@Bean
+		@Order(1)
+		BatchConversionServiceCustomizer batchConversionServiceCustomizer() {
+			return mock(BatchConversionServiceCustomizer.class);
+		}
+
+		@Bean
+		@Order(2)
+		BatchConversionServiceCustomizer anotherBatchConversionServiceCustomizer() {
+			return mock(BatchConversionServiceCustomizer.class);
+		}
 
 	}
 
