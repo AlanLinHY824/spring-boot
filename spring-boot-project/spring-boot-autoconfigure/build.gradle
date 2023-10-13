@@ -10,6 +10,11 @@ plugins {
 
 description = "Spring Boot AutoConfigure"
 
+repositories {
+	maven{ url 'https://maven.aliyun.com/nexus/content/groups/public/'}
+	mavenCentral()
+}
+
 dependencies {
 	api(project(":spring-boot-project:spring-boot"))
 

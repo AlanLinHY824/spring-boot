@@ -6,6 +6,7 @@ plugins {
 }
 
 repositories {
+	maven{ url 'https://maven.aliyun.com/nexus/content/groups/public/'}
 	mavenCentral()
 	gradlePluginPortal()
 }
@@ -26,8 +27,9 @@ versions["springFramework"] = "6.0.12"
 ext.set("versions", versions)
 if (versions.springFramework.contains("-")) {
 	repositories {
-		maven { url "https://repo.spring.io/milestone" }
-		maven { url "https://repo.spring.io/snapshot" }
+		maven{ url 'https://maven.aliyun.com/nexus/content/groups/public/'}
+//		maven { url "https://repo.spring.io/milestone" }
+//		maven { url "https://repo.spring.io/snapshot" }
 	}
 }
 
