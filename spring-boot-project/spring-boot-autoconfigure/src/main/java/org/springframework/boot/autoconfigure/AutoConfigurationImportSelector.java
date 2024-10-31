@@ -177,6 +177,7 @@ public class AutoConfigurationImportSelector implements DeferredImportSelector, 
 	 * @return a list of candidate configurations
 	 */
 	protected List<String> getCandidateConfigurations(AnnotationMetadata metadata, AnnotationAttributes attributes) {
+		//获取自动配置类
 		List<String> configurations = ImportCandidates.load(AutoConfiguration.class, getBeanClassLoader())
 			.getCandidates();
 		Assert.notEmpty(configurations,

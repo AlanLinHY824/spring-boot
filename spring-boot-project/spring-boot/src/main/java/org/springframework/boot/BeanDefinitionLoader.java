@@ -16,14 +16,7 @@
 
 package org.springframework.boot;
 
-import java.io.IOException;
-import java.lang.reflect.Constructor;
-import java.util.HashSet;
-import java.util.Set;
-import java.util.regex.Pattern;
-
 import groovy.lang.Closure;
-
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.BeanDefinitionStoreException;
 import org.springframework.beans.factory.groovy.GroovyBeanDefinitionReader;
@@ -46,6 +39,12 @@ import org.springframework.util.Assert;
 import org.springframework.util.ClassUtils;
 import org.springframework.util.ObjectUtils;
 import org.springframework.util.StringUtils;
+
+import java.io.IOException;
+import java.lang.reflect.Constructor;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.regex.Pattern;
 
 /**
  * Loads bean definitions from underlying sources, including XML and JavaConfig. Acts as a
@@ -122,7 +121,7 @@ class BeanDefinitionLoader {
 	}
 
 	/**
-	 * Load the sources into the reader.
+	 * Load the sources into the reader.加载主配置类的定义信息
 	 */
 	void load() {
 		for (Object source : this.sources) {
